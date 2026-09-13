@@ -1,6 +1,6 @@
 module github.com/oioio-space/encre
 
-go 1.26
+go 1.27
 
 require github.com/hajimehoshi/ebiten/v2 v2.10.2
 

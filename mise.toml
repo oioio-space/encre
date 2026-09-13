@@ -17,9 +17,9 @@ experimental = true
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
 [tools]
-go            = "1.26.5"
+go            = "1.27.1"
 gh            = "latest"
-golangci-lint = "2.12.2"
+golangci-lint = "2.13.2"
 gofumpt       = "latest"
 shellcheck    = "latest"
 gitleaks      = "latest"
