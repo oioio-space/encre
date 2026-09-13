@@ -41,6 +41,9 @@ type Child struct {
 	Base          RollingRate
 	Unlocked      []TalismanID
 	BossWinsTotal int
+	// AppliedRuns records which runs have already been written in, so a phone
+	// that lost the network and resent one does not gild the same word twice.
+	AppliedRuns map[string]bool
 }
 
 // LoseEarly records a run lost early: the targets come down one step of
