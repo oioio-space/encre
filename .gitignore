@@ -1,0 +1,20 @@
+# Build / release
+dist/
+# Root-anchored so it ignores only a top-level `go build` artifact, not cmd/encre/.
+/encre
+*.exe
+*.test
+
+# Test & scan output (regenerable — see scripts/clean-artifacts.sh)
+coverage.out
+coverage.html
+junit.xml
+sbom.cdx.json
+bench-*.txt
+*.prof
+
+# Local-only
+.env
+.env.*
+mise.local.toml
+.DS_Store

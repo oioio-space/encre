@@ -1,0 +1,208 @@
+# mise — single source of truth for the toolchain, env, and project commands.
+# Docs: https://mise.jdx.dev
+#
+#   mise run setup      # install tools + wire git hooks (one-shot bootstrap)
+#   mise run            # list available tasks
+#   mise run lint       # full Go style-guide gate
+#   mise run ci         # everything CI runs (lint + scans + tests + coverage)
+#
+# Token optimization: build/test/lint tasks route through scripts/rtkx.sh, which uses
+# `rtk err` when rtk is installed (compact output, exit code preserved) and runs raw
+# otherwise. Install rtk with `mise run tools:rtk` (optional, never blocks).
+
+min_version = "2024.1.0"
+
+[settings]
+experimental = true
+
+# ── Tools ─────────────────────────────────────────────────────────────────────
+[tools]
+go            = "1.26.5"
+gh            = "latest"
+golangci-lint = "2.12.2"
+gofumpt       = "latest"
+shellcheck    = "latest"
+gitleaks      = "latest"
+"go:github.com/securego/gosec/v2/cmd/gosec" = "latest"
+"go:golang.org/x/vuln/cmd/govulncheck"      = "latest"
+# x/perf has no tagged releases — "latest" breaks mise's go-backend resolution; pin the pseudo-version.
+"go:golang.org/x/perf/cmd/benchstat"        = "v0.0.0-20260709024250-82a0b07e230d"
+"go:github.com/dkorunic/betteralign/cmd/betteralign" = "latest"
+syft          = "latest"
+grype         = "latest"
+gotestsum     = "latest"
+actionlint    = "latest"
+yamlfmt       = "latest"
+watchexec     = "latest"
+goreleaser    = "latest"
+
+# ── Environment ───────────────────────────────────────────────────────────────
+[env]
+GOFLAGS = "-mod=readonly"
+# Absolute rule: this project is pure Go. CGO off everywhere (build, test, release).
+CGO_ENABLED = "0"
+# Minimum test coverage enforced by `mise run cover:check` / CI (cmd/ excluded).
+COVER_MIN = "85"
+_.path = ["{{ env.HOME }}/go/bin"]
+
+# ── Hooks ─────────────────────────────────────────────────────────────────────
+[hooks]
+enter = "git config core.hooksPath .githooks >/dev/null 2>&1 || true"
+
+# ── Tasks ─────────────────────────────────────────────────────────────────────
+[tasks.fmt]
+description = "Format all Go code with gofumpt"
+run = "gofumpt -w ."
+
+[tasks.vet]
+description = "go vet"
+run = "./scripts/rtkx.sh go vet ./..."
+
+[tasks.build]
+description = "Build all packages"
+run = "./scripts/rtkx.sh go build ./..."
+
+[tasks.align]
+description = "Reorder struct fields for optimal memory alignment (betteralign -apply)"
+run = "betteralign -apply ./... && gofumpt -w ."
+
+[tasks."align:check"]
+description = "Report structs whose field order wastes memory (betteralign, no changes)"
+run = "betteralign ./..."
+
+[tasks.gen]
+description = "go generate over the module"
+run = "go generate ./..."
+
+[tasks."gen:check"]
+description = "Verify committed generated files match the generators (fails on drift)"
+run = "go generate ./... && git diff --exit-code"
+
+[tasks.test]
+description = "Run tests (gotestsum, readable output)"
+run = "./scripts/rtkx.sh gotestsum --format pkgname -- ./..."
+
+[tasks."test:ci"]
+description = "Run tests once, producing a JUnit report AND coverage.out"
+run = "./scripts/rtkx.sh gotestsum --junitfile junit.xml --format pkgname -- -short -timeout=8m -covermode=atomic -coverprofile=coverage.out ./..."
+
+[tasks."test:watch"]
+description = "Re-run tests on every file change (TDD loop)"
+run = "mise watch -t test"
+
+[tasks.bench]
+description = "Run Go benchmarks (-benchmem); set BENCH_PATTERN to filter"
+run = "./scripts/bench.sh run"
+
+[tasks."bench:baseline"]
+description = "Run benchmarks and save bench-baseline.txt (before optimizing)"
+run = "./scripts/bench.sh baseline"
+
+[tasks."bench:compare"]
+description = "Run benchmarks and benchstat vs baseline (after optimizing)"
+run = "./scripts/bench.sh compare"
+
+[tasks.cover]
+description = "Test coverage report (coverage.out + total %)"
+run = "./scripts/cover.sh"
+
+[tasks."cover:check"]
+description = "Enforce minimum coverage (COVER_MIN); reuses coverage.out from test:ci"
+depends = ["test:ci"]
+run = "./scripts/cover.sh --check"
+
+[tasks.lint]
+description = "Google Go style-guide gate (gofmt + vet + golangci-lint + build)"
+run = "./scripts/rtkx.sh ./scripts/lint.sh"
+
+[tasks."lint:staged"]
+description = "Style-guide gate on staged files only (used by the git pre-commit hook)"
+run = "./scripts/rtkx.sh ./scripts/lint.sh --staged"
+
+[tasks."lint:sh"]
+description = "Lint the bash hook scripts with shellcheck"
+run = "shellcheck -x --source-path=SCRIPTDIR .githooks/* .claude/hooks/*.sh .claude/hooks/lib/*.sh scripts/*.sh"
+
+[tasks."lint:yaml"]
+description = "Lint YAML config formatting with yamlfmt"
+run = "yamlfmt -lint .golangci.yml .github/workflows"
+
+[tasks."lint:actions"]
+description = "Lint GitHub Actions workflows with actionlint"
+run = "actionlint"
+
+[tasks."scan:secrets"]
+description = "Scan full git history for leaked secrets (gitleaks)"
+run = "./scripts/rtkx.sh gitleaks git --redact ."
+
+[tasks."scan:secrets:staged"]
+description = "Scan staged changes for secrets (pre-commit gate)"
+run = "./scripts/rtkx.sh gitleaks git --staged --redact"
+
+[tasks."scan:code"]
+description = "Code vuln scan: gosec (SAST) + govulncheck (reachable CVEs)"
+run = "./scripts/sec-scan.sh"
+
+[tasks."scan:code:staged"]
+description = "Code vuln scan on staged Go (pre-commit gate)"
+run = "./scripts/sec-scan.sh --staged"
+
+[tasks.sbom]
+description = "Generate a CycloneDX SBOM (syft)"
+run = "syft scan dir:. -o cyclonedx-json=sbom.cdx.json -q"
+
+[tasks."scan:sbom"]
+description = "Scan the SBOM for CVEs (grype) — fails on high/critical"
+depends = ["sbom"]
+run = "./scripts/rtkx.sh grype sbom:sbom.cdx.json --fail-on high"
+
+[tasks."cgo:check"]
+description = "Absolute rule gate: fail if any package uses CGO (project is pure Go)"
+run = "./scripts/cgo-check.sh"
+
+[tasks.ci]
+description = "Everything CI must pass"
+depends = ["cgo:check", "scan:secrets", "scan:code", "scan:sbom", "lint", "lint:sh", "lint:yaml", "lint:actions", "test:ci", "cover:check"]
+
+[tasks.release]
+description = "Cross-platform release build + publish (goreleaser)"
+run = "goreleaser release --clean"
+
+[tasks."release:snapshot"]
+description = "Local cross-platform build, no publish (goreleaser)"
+run = "goreleaser release --snapshot --clean"
+
+[tasks."tools:rtk"]
+description = "Best-effort install of rtk (token-optimized task output) — never blocks"
+run = '''
+if command -v rtk >/dev/null 2>&1; then
+  echo "✓ rtk already available: $(rtk --version 2>/dev/null)"
+  exit 0
+fi
+echo "Installing rtk from GitHub releases (prebuilt, non-blocking)…"
+mise use -g "github:rtk-ai/rtk@latest" >/dev/null 2>&1 \
+  && echo "✓ rtk installed via mise (github releases)" \
+  || echo "⚠ rtk not installed — tasks still run, just without token optimization."
+exit 0
+'''
+
+[tasks.gh]
+description = "GitHub CLI via mise + rtk (use: mise run gh -- pr list)"
+run = "./scripts/ghx.sh"
+
+[tasks.clean]
+description = "Remove regenerable build/scan artifacts + go build cache"
+run = "./scripts/clean-artifacts.sh"
+
+[tasks."clean:check"]
+description = "Pre-commit gate: tidy artifacts + block any staged artifact"
+run = "./scripts/clean-artifacts.sh --check"
+
+[tasks."hooks:install"]
+description = "Point git at .githooks (pre-commit + post-commit + pre-push)"
+run = "./scripts/install-hooks.sh"
+
+[tasks.setup]
+description = "One-shot bootstrap: install tools + wire git hooks (+ optional rtk)"
+depends = ["hooks:install", "tools:rtk"]
+run = "mise install"

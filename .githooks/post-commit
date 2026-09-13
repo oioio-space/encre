@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Git native post-commit hook — re-arm the /simplify review gate.
+#
+# Runs after every successful commit (via core.hooksPath=.githooks). Clears the
+# /simplify review attestation marker so the NEXT commit must re-run the full review.
+# This is a defence-in-depth measure on top of the staged-diff-hash key in pre-commit.
+set -euo pipefail
+
+# Re-arm the pre-commit review gate: clear the approval marker so the NEXT commit
+# must re-run the full review (defence-in-depth on top of the staged-diff-hash key).
+rm -f "$(git rev-parse --git-dir)/claude-simplify-ok" 2>/dev/null || true
