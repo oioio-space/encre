@@ -61,12 +61,14 @@ le dernier ticket du backlog, pas le premier.
 |---|---|
 | Prototype clavier (T00) | ✅ thème clair parchemin, 7 colonnes alphabétiques sur téléphone (AZERTY 10 sur ordinateur), rangée d'accents, ourlet de touche, son de plume. Vérifié en WASM : **cœur** écrit, le `œ` par appui long |
 | Appui long | ✅ `a c e i o u` ouvrent `à â · ç · é è ê ë · î ï · ô ö œ · ù û` — les seuls accès à cœur, œil, flûte, brûle, sûr |
+| `engine` | ✅ **complet** : Config, Score, p̂/cibles, dorure-malédiction-domptage, rang/XP, deck, Replay/Apply. Pur Go, zéro dépendance |
+| `sim` | ✅ 100 enfants × 36 semaines sur le vrai moteur : rétention 96 %, M1 3,3 %, boss 23,5 % — les seuils de ENCRE_05 T08 |
 | `client/ui` | ✅ géométrie du clavier, variantes accentuées, cible tactile, échelle entière, contrôle des glyphes — testé |
 | `client/game` | ✅ le mot en cours de saisie (runes, pas octets) — testé |
 | Build natif + `js/wasm` | ✅ les deux compilent, **sans CGO** |
 | Simulateur d'équilibrage | ✅ tourne, hors build du module, à porter dans `engine` |
 | Test sur tablette et téléphone réels | ⏳ le reste de T00 — quatre questions ouvertes déposées en `encre-1yv.1` |
-| `engine`, `lexique`, `content`, `server` | ⛔ spécifiés dans le brief, pas écrits |
+| `lexique`, `content`, `server` | ⛔ spécifiés dans le brief, pas écrits |
 
 ## Démarrer
 

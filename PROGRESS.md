@@ -10,6 +10,10 @@
   ourlet de touche, appui long. Vérifié en WASM — « cœur » écrit, le `œ` par
   appui long sur `o`. `client/ui` et `client/game` sont testés ; le reste de T00
   est la séance sur tablette et téléphone réels (`encre-1yv.1`).
+- **Paquet `engine` complet** : Config, Score, PHat/Targets, transitions du mot,
+  rang et XP, BuildDeck, Replay/Apply. Pur Go, zéro dépendance, 95,5 % couvert.
+- **`sim`** rejoue 100 enfants sur 36 semaines à travers le vrai moteur et tient
+  les seuils du brief : rétention 96 %, M1 3,3 %, boss 23,5 %, en 2,8 s.
 - Builds natif **et** `GOOS=js GOARCH=wasm` verts, sans CGO. WASM : 18 Mo bruts,
   **3,2 Mo brotli** — le brief budgète ~10 Mo bruts / ~3 Mo brotli, donc le
   double sur le brut et la cible sur ce qui traverse vraiment le réseau.
@@ -37,4 +41,5 @@ production et le socle du dépôt en P2. Le dépôt ne prime pas sur le jeu.
 | 2026-09-13 | Remote GitHub public `oioio-space/encre` ; CI verte au premier push ; beads synchronisés (`refs/dolt/data`). |
 | 2026-09-13 | Prototype T00 : clavier dessiné, accents, audio ; `client/ui` + `client/game` testés (35 tests, 96 %). |
 | 2026-09-13 | T00 refait selon ENCRE_06 : thème clair, 7 colonnes alphabétiques, appui long pour `œ û ë â ï ö`. |
+| 2026-09-13 | **Epic Moteur terminé** : `engine` complet (T01–T08) + `sim` — 100 enfants × 36 semaines sur le vrai moteur. |
 | 2026-09-13 | README réel (ancré sur la simulation d'équilibrage), topics GitHub, licence MIT. |
