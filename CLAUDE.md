@@ -133,6 +133,10 @@ a **substantial** diff; a trivial diff is cleared inline:
     (12 + 17 + 10 cas). Ils tournent en `ci`.
 - **Pas de TodoWrite ni de TODO en markdown** : le suivi vit dans bd. `PROGRESS.md`
   garde le récit et le journal, pas les tâches.
+- **Deux porteurs, un seul maître** : la source de vérité des beads est la base Dolt,
+  synchronisée par `bd dolt push` vers `refs/dolt/data` sur origin. `.beads/issues.jsonl`
+  reste versionné parce qu'il rend un changement de bead **lisible dans un diff** —
+  c'est un export, jamais la référence. `mise run beads:export` le rafraîchit.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker

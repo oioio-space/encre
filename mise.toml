@@ -239,9 +239,10 @@ run = "./.githooks/commit-msg_test.sh"
 
 [tasks."beads:export"]
 description = "Refresh the .beads/issues.jsonl snapshot that travels in git"
-# The Dolt DB is gitignored and there is no Dolt remote yet, so this JSONL export
-# is what actually carries the backlog off this machine. Re-run before committing
-# when beads changed.
+# Durable sync is `bd dolt push` (refs/dolt/data on origin, wired 2026-09-13);
+# this JSONL is the readable, reviewable export that rides in the git tree — it
+# is what makes a bead change visible in a diff. Re-run before committing when
+# beads changed; the pre-commit beads block also refreshes it.
 run = "bd export -o .beads/issues.jsonl"
 
 [tasks.setup]
