@@ -164,7 +164,7 @@ run = "./scripts/cgo-check.sh"
 
 [tasks.ci]
 description = "Everything CI must pass"
-depends = ["cgo:check", "scan:secrets", "scan:code", "scan:sbom", "lint", "lint:sh", "lint:yaml", "lint:actions", "test:ci", "cover:check"]
+depends = ["cgo:check", "scan:secrets", "scan:code", "scan:sbom", "lint", "lint:sh", "lint:yaml", "lint:actions", "test:ci", "cover:check", "check-gates-intact", "gates:test"]
 
 [tasks.release]
 description = "Cross-platform release build + publish (goreleaser)"
@@ -203,6 +203,33 @@ run = "./scripts/clean-artifacts.sh --check"
 [tasks."hooks:install"]
 description = "Point git at .githooks, or at .beads/hooks when its shims delegate there"
 run = "./scripts/install-hooks.sh"
+
+[tasks."check-gates-intact"]
+description = "Fail if an active guardrail vanished without being removed from gates.manifest"
+# Also invoked BY PATH from .github/workflows/ci.yml and .githooks/pre-push, on
+# purpose: this task's own name lives in `[tasks.ci] depends`, which is one of the
+# things the script watches — reachable only from there, deleting one string would
+# disable the whole check silently.
+run = "./scripts/check-gates-intact.sh"
+
+[tasks."check-gates-intact:test"]
+description = "Bite test for check-gates-intact.sh (fixture repos, not part of ci)"
+run = "./scripts/check-gates-intact_test.sh"
+
+[tasks."cycle:check"]
+description = "Manual run of the development-cycle guardrail, bypassing its 15-minute throttle"
+run = "out=$(ENCRE_CYCLE_NOCACHE=1 ./.claude/hooks/cycle-check.sh </dev/null); if [ -z \"$out\" ]; then echo 'rien de dû'; else printf '%s' \"$out\" | jq -r '.hookSpecificOutput.additionalContext'; fi"
+
+[tasks."cycle:check:test"]
+description = "Bite test for cycle-check.sh (fixture repos, not part of ci)"
+run = "./.claude/hooks/cycle-check_test.sh"
+
+[tasks."gates:test"]
+description = "Run every guardrail bite test — the gates that guard the gates"
+# In `ci`: a guardrail-inventory check that is itself unverified is one more
+# thing held by convention.
+depends = ["commit-msg:test", "check-gates-intact:test", "cycle:check:test"]
+run = "echo '✓ tous les tests de morsure sont passés'"
 
 [tasks."commit-msg:test"]
 description = "Bite test for the Bead: trailer gate (what it must refuse AND accept)"

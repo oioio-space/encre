@@ -117,6 +117,20 @@ a **substantial** diff; a trivial diff is cleared inline:
   dépendait de « Écran de run »). Après tout import, vérifier avec `bd dep list <id>`
   et `bd ready` : les racines seules doivent être prêtes. En direct, `bd dep <bloqueur>
   --blocks <bloqué>` ne prête pas à confusion.
+- **Deux audits gardent les gardes** (portés de fk le 2026-09-13) :
+  - `mise run check-gates-intact` compare 53 garde-fous vivants (gates du pre-commit,
+    linters, `[tasks.ci] depends`, `COVER_MIN` **par sa valeur**, hooks Claude câblés,
+    shims beads, hooks versionnés) au manifeste `scripts/gates.manifest`. Retirer un
+    garde-fou reste possible : supprimer sa ligne du manifeste **dans le même commit**,
+    ce qui rend le retrait explicite. Ajouter n'est jamais bloqué (simple avertissement).
+    Il est appelé **par chemin** depuis `ci.yml` et `.githooks/pre-push`, jamais seulement
+    via `[tasks.ci] depends` — cette liste fait partie de ce qu'il surveille.
+  - `.claude/hooks/cycle-check.sh` (UserPromptSubmit) mesure l'**état** à chaque prompt :
+    ÉVENTAIL, BOUCLE D'AMÉLIORATION, DÉRIVE DU RÉCIT, HIÉRARCHIE, NON RÉCLAMÉ, PROCESSUS,
+    ARBRE EN CONFLIT. Silencieux quand rien n'est dû — c'est ce qui garde sa parole rare
+    audible. Lecture manuelle : `mise run cycle:check`.
+  - Les deux ont leur test de morsure, dans les deux sens : `mise run gates:test`
+    (12 + 17 + 10 cas). Ils tournent en `ci`.
 - **Pas de TodoWrite ni de TODO en markdown** : le suivi vit dans bd. `PROGRESS.md`
   garde le récit et le journal, pas les tâches.
 

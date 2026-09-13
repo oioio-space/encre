@@ -37,8 +37,13 @@ d = json.load(sys.stdin)
 issues = d if isinstance(d, list) else d.get("issues", [])
 print(issues[0]["id"] if issues else "")' 2>/dev/null || true)"
 if [[ -z "$existing" ]]; then
-  echo "✗ cannot run: no bead found to test against (bd list returned nothing)" >&2
-  exit 1
+  # The Dolt database is gitignored and bd is not a CI tool, so a fresh clone has
+  # no beads to verify ids against. Skip LOUDLY rather than fail — but never
+  # silently: a test that quietly no-ops reads as coverage it does not provide.
+  # This test earns its keep locally, which is where the commit-msg gate runs.
+  echo "⊘ commit-msg_test: SKIPPED — no bead database reachable (expected in CI;"
+  echo "  run it locally, where the gate it covers actually fires)."
+  exit 0
 fi
 
 echo "▶ .githooks/commit-msg (against existing bead $existing)"

@@ -8,6 +8,16 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 
+# Called by path, not through `mise run ci`: check-gates-intact watches
+# `[tasks.ci] depends`, so an invocation reachable only from that list could be
+# disabled by removing its own name from it. Best-effort like the rest of this
+# hook — bypassable with --no-verify.
+printf '\033[34m▶ Pre-push: guardrail inventory…\033[0m\n'
+if ! "$repo_root/scripts/check-gates-intact.sh"; then
+  printf '\033[31m✗ Push blocked: a manifested guardrail is missing (or git push --no-verify).\033[0m\n' >&2
+  exit 1
+fi
+
 printf '\033[34m▶ Pre-push: running full CI (mise run ci)…\033[0m\n'
 
 if command -v mise >/dev/null 2>&1 && [[ -f "$repo_root/mise.toml" ]]; then

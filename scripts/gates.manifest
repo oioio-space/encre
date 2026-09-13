@@ -1,0 +1,97 @@
+# Committed inventory of active guardrails, checked against the live
+# configuration by scripts/check-gates-intact.sh. See that script's header for
+# the format and the extraction rule behind each category.
+#
+# Removing a line here alongside the guardrail it names, in the SAME commit, is
+# how a guardrail is deliberately retired: explicit and reviewable instead of
+# accidental. Adding a guardrail does not require touching this file first (the
+# check only warns on additions), but it should be added promptly so that a
+# later removal is caught.
+
+# .githooks/pre-commit gates, by mise task name
+# (simplify-attestation is the one gate with no task: it reads a marker file).
+precommit:cgo:check
+precommit:clean:check
+precommit:lint:staged
+precommit:scan:code:staged
+precommit:scan:secrets:staged
+precommit:simplify-attestation
+
+# .golangci.yml linters.enable. formatters.enable (gofumpt) is not
+# tracked on purpose: a formatter is not a lint check.
+linter:errcheck
+linter:errorlint
+linter:gocritic
+linter:godot
+linter:govet
+linter:ineffassign
+linter:misspell
+linter:nakedret
+linter:predeclared
+linter:revive
+linter:staticcheck
+linter:unconvert
+linter:unparam
+linter:usestdlibvars
+
+# .golangci.yml linters.settings.depguard.rules. None yet — the
+# extractor exists so the first import-boundary rule is noticed rather than
+# born unwatched.
+# (aucun depguard-rule actif pour l'instant)
+
+# mise.toml [tasks.ci] depends.
+ci-dep:cgo:check
+ci-dep:check-gates-intact
+ci-dep:cover:check
+ci-dep:gates:test
+ci-dep:lint
+ci-dep:lint:actions
+ci-dep:lint:sh
+ci-dep:lint:yaml
+ci-dep:scan:code
+ci-dep:scan:sbom
+ci-dep:scan:secrets
+ci-dep:test:ci
+
+# force-bearing settings, compared by VALUE. A gate whose name survives
+# while its strength is gutted in place (COVER_MIN 85 -> 10) passes every
+# name-based check above; this one does not.
+param:COVER_MIN=85
+
+# .claude/hooks/*.sh actually wired into .claude/settings.json.
+# cycle-check.sh is here for the reason it exists: the mechanism that watches
+# our cycles could disappear in a refactor exactly like the drifts it catches.
+claude-hook:benchmark-context.sh
+claude-hook:commit-cleanup-review.sh
+claude-hook:commit-docs-review.sh
+claude-hook:commit-ergonomics-review.sh
+claude-hook:commit-secret-review.sh
+claude-hook:commit-simplify-review.sh
+claude-hook:commit-style-review.sh
+claude-hook:commit-vuln-review.sh
+claude-hook:cycle-check.sh
+claude-hook:modern-go-context.sh
+claude-hook:pre-commit-simplify.sh
+claude-hook:research-grounding.sh
+
+# .beads/hooks/<name> must DELEGATE to .githooks/<name>, never copy
+# it. Found live 2026-09-13: bd init had written verbatim copies of
+# pre-commit, pre-push and post-commit and taken core.hooksPath, so every kit
+# gate would have gone stale at the next .githooks change with nothing
+# complaining. This category keeps them delegating.
+hook-shim:commit-msg
+hook-shim:post-commit
+hook-shim:pre-commit
+hook-shim:pre-push
+
+# the versioned gate files themselves — present and executable,
+# independent of which hooksPath a given clone has wired.
+githook:commit-msg
+githook:post-commit
+githook:pre-commit
+githook:pre-push
+
+# `go run ./cmd/<name>` invocations in scripts/lint.sh. None yet; kept
+# for the same reason as depguard-rule.
+# (aucun lintsh actif pour l'instant)
+

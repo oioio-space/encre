@@ -32,6 +32,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - uses: jdx/mise-action@v3
+      # Called BY PATH, not via `mise run ci`: check-gates-intact watches
+      # `[tasks.ci] depends`, so an invocation that went only through that list
+      # could be disabled by deleting its own name from it.
+      - name: Guardrail inventory (check-gates-intact)
+        run: bash scripts/check-gates-intact.sh
       - run: mise run ci
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
