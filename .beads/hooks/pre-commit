@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Git native pre-commit hook (deterministic gates).
+# Installed via `git config core.hooksPath .githooks`, so it is versioned and fires for
+# everyone on every `git commit`.
+#
+# Gates, in order:
+#   0. Repo janitor — tidy regenerable artifacts + block any staged artifact.
+#   1. Secret scan (gitleaks) on staged changes — block leaks before they exist.
+#   2. Code vuln scan (gosec + govulncheck) on staged Go — block insecure code.
+#   3. Google Go style-guide gate (gofmt/vet/golangci-lint/build/test) on staged Go.
+#   4. Pure-Go (no CGO) gate — optional, present if project opts in to no-CGO at bootstrap.
+#   5. /simplify review attestation — the AI-judgment review dimensions (reuse /
+#      simplification / efficiency / altitude, plus secrets/vulns/style/cleanup/
+#      ergonomics/docs) cannot be checked deterministically, so this gate requires the
+#      approval marker keyed to the EXACT staged diff. It makes /simplify a MANDATORY
+#      gate on every commit path (humans, other tools, or with Claude hooks off), not
+#      only Claude's PreToolUse hook. Bypass (emergency only): git commit --no-verify.
+# A non-zero exit from any of them aborts the commit.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+# Prefer the mise task (pinned tool versions); fall back to the raw script/binary.
+use_mise=0
+if command -v mise >/dev/null 2>&1 && [[ -f "$repo_root/mise.toml" ]]; then use_mise=1; fi
+mise_or() { # $1 = mise task, rest = fallback command
+  local task="$1"
+  shift
+  if [[ $use_mise -eq 1 ]]; then mise run "$task"; else "$@"; fi
+}
+
+# gate <header> <fail-msg> <mise-task> <fallback-cmd...>
+gate() {
+  local header="$1" fail="$2" task="$3"
+  shift 3
+  printf '\033[34m▶ %s\033[0m\n' "$header"
+  if ! mise_or "$task" "$@"; then
+    printf '\033[31m✗ %s\033[0m\n' "$fail" >&2
+    printf '  (To bypass in an emergency only: git commit --no-verify)\n' >&2
+    exit 1
+  fi
+}
+
+gate "Tidying artifacts (repo-janitor)…" \
+  "Commit blocked: build/scan artifacts are staged (see above)." \
+  "clean:check" "$repo_root/scripts/clean-artifacts.sh" --check
+
+gate "Scanning staged changes for secrets (gitleaks)…" \
+  "Commit blocked: a secret was detected in the staged changes. Remove/rotate it." \
+  "scan:secrets:staged" gitleaks git --staged --redact
+
+gate "Scanning staged Go for vulnerabilities (gosec + govulncheck)…" \
+  "Commit blocked: a security vulnerability was found. Fix it or annotate //nolint:gosec." \
+  "scan:code:staged" "$repo_root/scripts/sec-scan.sh" --staged
+
+gate "Running Google Go style-guide checks…" \
+  "Commit blocked: fix the style-guide violations above." \
+  "lint:staged" "$repo_root/scripts/lint.sh" --staged
+
+gate "Checking the project stays pure Go (no CGO)…" \
+  "Commit blocked: CGO is forbidden in this project (see CLAUDE.md)." \
+  "cgo:check" "$repo_root/scripts/cgo-check.sh"
+
+# Gate 5: /simplify review attestation (keyed to the exact staged diff).
+# Runs last: objective gates surface actionable fixes first; this records that the
+# AI-judgment review was completed on the final staged content. git skips this hook
+# entirely under `git commit --no-verify`, so no explicit bypass handling is needed.
+printf '\033[34m▶ %s\033[0m\n' "Checking the /simplify review attestation…"
+marker="$(git rev-parse --git-dir)/claude-simplify-ok"
+staged_hash="$(git diff --cached | sha1sum | cut -d' ' -f1)"
+if [[ ! -f "$marker" || "$(cat "$marker" 2>/dev/null)" != "$staged_hash" ]]; then
+  printf '\033[31m✗ %s\033[0m\n' "Commit blocked: the /simplify review is not recorded for this staged diff." >&2
+  printf '  Complete the full pre-commit review (reuse / simplification / efficiency / altitude,\n' >&2
+  printf '  plus secrets / vulns / style / cleanup / ergonomics / docs), then record approval\n' >&2
+  printf '  for the exact staged set and re-run the commit:\n' >&2
+  printf '      git diff --cached | sha1sum | cut -d" " -f1 > %s\n' "\"$marker\"" >&2
+  printf '  (Emergency bypass only: git commit --no-verify)\n' >&2
+  exit 1
+fi
+printf '\033[32m✓ %s\033[0m\n' "/simplify review attestation present"
+
+# --- BEGIN BEADS INTEGRATION v1.2.2 ---
+# This section is managed by beads. Do not remove these markers.
+if command -v bd >/dev/null 2>&1; then
+  export BD_GIT_HOOK=1
+  _bd_timeout=${BEADS_HOOK_TIMEOUT:-300}
+  _bd_used_perl=0
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$_bd_timeout" bd hooks run pre-commit "$@"
+    _bd_exit=$?
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$_bd_timeout" bd hooks run pre-commit "$@"
+    _bd_exit=$?
+  elif command -v perl >/dev/null 2>&1; then
+    _bd_used_perl=1
+    perl -e 'alarm shift; exec @ARGV' "$_bd_timeout" bd hooks run pre-commit "$@"
+    _bd_exit=$?
+  else
+    echo >&2 "beads: hook 'pre-commit' running without timeout; install coreutils or perl to enable BEADS_HOOK_TIMEOUT"
+    bd hooks run pre-commit "$@"
+    _bd_exit=$?
+  fi
+  if [ $_bd_exit -eq 124 ] || { [ $_bd_used_perl -eq 1 ] && [ $_bd_exit -eq 142 ]; }; then
+    echo >&2 "beads: hook 'pre-commit' timed out after ${_bd_timeout}s — continuing without beads"
+    _bd_exit=0
+  fi
+  if [ $_bd_exit -eq 3 ]; then
+    echo >&2 "beads: database not initialized — skipping hook 'pre-commit'"
+    _bd_exit=0
+  fi
+  if [ $_bd_exit -ne 0 ]; then exit $_bd_exit; fi
+fi
+# --- END BEADS INTEGRATION v1.2.2 ---
