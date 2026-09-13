@@ -1,0 +1,108 @@
+===== V1 — concept tel que décrit =====
+Encore en jeu à la semaine 36 : 0%   (arrêts: 64 frustration, 36 ennui ; semaine médiane d'arrêt 8)
+Profil des arrêts : 3.5 sessions/sem, skill 0.70  | des fidèles : 0.0 sessions/sem, skill 0.00
+Taux d'échec par manche (sur 8618 runs) : M1 10.8%  M2 20.0%  Boss 20.1%
+Rangs en semaine 36 : Blanc 35  Bronze 3  Argent 3  Or 2  Platine 57  Diamant 0
+Semaine médiane d'accès : Bronze 1  Argent 2  Or 3  Platine 4  Diamant NaN
+Niveau de règle max (médiane) : 10/10
+Dictée réelle : sem 1-4 70% -> sem 33-36 NaN%   | témoin (école seule) 57% -> 57%
+Corrélation score de jeu / dictée réelle : r = 0.27
+À l'aveugle : 64% des mots, réussite 78%
+Dorées/enfant 26.3  ternies 4.0  restaurées 23.6  holo 4.8  | Garde: 46.7 cartes distinctes utilisées
+Maudites domptées/enfant 32.6   Synergies achetées/enfant 10.9   Revanches/enfant 0.0 (gagnées 0%)
+===== V2 — cibles = valeur du deck x combo attendu (fin du combo parfait) =====
+Encore en jeu à la semaine 36 : 0%   (arrêts: 94 frustration, 6 ennui ; semaine médiane d'arrêt 6)
+Profil des arrêts : 3.5 sessions/sem, skill 0.70  | des fidèles : 0.0 sessions/sem, skill 0.00
+Taux d'échec par manche (sur 6380 runs) : M1 15.0%  M2 21.3%  Boss 25.4%
+Rangs en semaine 36 : Blanc 19  Bronze 10  Argent 8  Or 9  Platine 54  Diamant 0
+Semaine médiane d'accès : Bronze 0  Argent 1  Or 2  Platine 4  Diamant NaN
+Niveau de règle max (médiane) : 9/10
+Dictée réelle : sem 1-4 68% -> sem 33-36 NaN%   | témoin (école seule) 57% -> 57%
+Corrélation score de jeu / dictée réelle : r = 0.54
+À l'aveugle : 66% des mots, réussite 79%
+Dorées/enfant 25.6  ternies 3.8  restaurées 13.6  holo 3.6  | Garde: 31.1 cartes distinctes utilisées
+Maudites domptées/enfant 21.1   Synergies achetées/enfant 9.1   Revanches/enfant 0.0 (gagnées 0%)
+===== V3 — + 7 mots/manche, valeur du deck = jetons x taux de reussite personnel =====
+Encore en jeu à la semaine 36 : 0%   (arrêts: 27 frustration, 73 ennui ; semaine médiane d'arrêt 15)
+Profil des arrêts : 3.5 sessions/sem, skill 0.70  | des fidèles : 0.0 sessions/sem, skill 0.00
+Taux d'échec par manche (sur 11616 runs) : M1 5.1%  M2 12.3%  Boss 20.3%
+Rangs en semaine 36 : Blanc 0  Bronze 1  Argent 2  Or 6  Platine 91  Diamant 0
+Semaine médiane d'accès : Bronze 0  Argent 1  Or 2  Platine 3  Diamant NaN
+Niveau de règle max (médiane) : 10/10
+Dictée réelle : sem 1-4 78% -> sem 33-36 NaN%   | témoin (école seule) 58% -> 58%
+Corrélation score de jeu / dictée réelle : r = 0.57
+À l'aveugle : 69% des mots, réussite 80%
+Dorées/enfant 49.3  ternies 7.6  restaurées 47.5  holo 6.1  | Garde: 78.6 cartes distinctes utilisées
+Maudites domptées/enfant 88.3   Synergies achetées/enfant 16.8   Revanches/enfant 0.0 (gagnées 0%)
+===== V4 — + rang : 8 victoires et 3 semaines mini, 6 rangs, paliers plus durs =====
+Encore en jeu à la semaine 36 : 0%   (arrêts: 29 frustration, 71 ennui ; semaine médiane d'arrêt 15)
+Profil des arrêts : 3.5 sessions/sem, skill 0.70  | des fidèles : 0.0 sessions/sem, skill 0.00
+Taux d'échec par manche (sur 11544 runs) : M1 5.5%  M2 12.5%  Boss 18.5%
+Rangs en semaine 36 : Blanc 10  Bronze 16  Argent 24  Or 23  Platine 15  Diamant 12
+Semaine médiane d'accès : Bronze 2  Argent 5  Or 8  Platine 11  Diamant 14
+Niveau de règle max (médiane) : 10/10
+Dictée réelle : sem 1-4 77% -> sem 33-36 NaN%   | témoin (école seule) 60% -> 58%
+Corrélation score de jeu / dictée réelle : r = 0.52
+À l'aveugle : 71% des mots, réussite 80%
+Dorées/enfant 68.6  ternies 11.7  restaurées 65.1  holo 6.5  | Garde: 79.0 cartes distinctes utilisées
+Maudites domptées/enfant 94.6   Synergies achetées/enfant 15.8   Revanches/enfant 0.0 (gagnées 0%)
+===== V5 — + XP seulement aveugle/boss, cout croissant, 1 niveau/regle/semaine =====
+Encore en jeu à la semaine 36 : 0%   (arrêts: 43 frustration, 57 ennui ; semaine médiane d'arrêt 15)
+Profil des arrêts : 3.5 sessions/sem, skill 0.70  | des fidèles : 0.0 sessions/sem, skill 0.00
+Taux d'échec par manche (sur 11352 runs) : M1 6.3%  M2 13.9%  Boss 18.3%
+Rangs en semaine 36 : Blanc 7  Bronze 13  Argent 20  Or 35  Platine 15  Diamant 10
+Semaine médiane d'accès : Bronze 2  Argent 5  Or 8  Platine 11  Diamant 14
+Niveau de règle max (médiane) : 6/10
+Dictée réelle : sem 1-4 77% -> sem 33-36 NaN%   | témoin (école seule) 55% -> 55%
+Corrélation score de jeu / dictée réelle : r = 0.51
+À l'aveugle : 67% des mots, réussite 80%
+Dorées/enfant 60.9  ternies 10.7  restaurées 56.4  holo 5.7  | Garde: 75.3 cartes distinctes utilisées
+Maudites domptées/enfant 93.2   Synergies achetées/enfant 18.2   Revanches/enfant 0.0 (gagnées 0%)
+===== V6 — + 2 paris aveugle/manche, maudites sur 2 semaines, Accordees en phrase =====
+Encore en jeu à la semaine 36 : 0%   (arrêts: 10 frustration, 90 ennui ; semaine médiane d'arrêt 16)
+Profil des arrêts : 3.5 sessions/sem, skill 0.70  | des fidèles : 0.0 sessions/sem, skill 0.00
+Taux d'échec par manche (sur 12724 runs) : M1 2.6%  M2 9.4%  Boss 24.1%
+Rangs en semaine 36 : Blanc 20  Bronze 30  Argent 19  Or 15  Platine 13  Diamant 3
+Semaine médiane d'accès : Bronze 2  Argent 5  Or 12  Platine 11  Diamant 14
+Niveau de règle max (médiane) : 6/10
+Dictée réelle : sem 1-4 80% -> sem 33-36 NaN%   | témoin (école seule) 55% -> 57%
+Corrélation score de jeu / dictée réelle : r = 0.46
+À l'aveugle : 29% des mots, réussite 78%
+Dorées/enfant 76.0  ternies 13.1  restaurées 73.2  holo 17.5  | Garde: 94.5 cartes distinctes utilisées
+Maudites domptées/enfant 27.6   Synergies achetées/enfant 24.7   Revanches/enfant 0.0 (gagnées 0%)
+===== V7 — + defi hebdo rotatif, prestige, 24 Talismans au compte-gouttes, 3 saisons/an =====
+Encore en jeu à la semaine 36 : 70%   (arrêts: 28 frustration, 2 ennui ; semaine médiane d'arrêt 23)
+Profil des arrêts : 3.3 sessions/sem, skill 0.68  | des fidèles : 3.6 sessions/sem, skill 0.71
+Taux d'échec par manche (sur 23104 runs) : M1 3.2%  M2 11.4%  Boss 26.4%
+Rangs en semaine 36 : Blanc 24  Bronze 29  Argent 22  Or 12  Platine 12  Diamant 1
+Semaine médiane d'accès : Bronze 8  Argent 15  Or 13  Platine 16  Diamant 18
+Niveau de règle max (médiane) : 10/10
+Dictée réelle : sem 1-4 80% -> sem 33-36 80%   | témoin (école seule) 58% -> 58%
+Corrélation score de jeu / dictée réelle : r = 0.54
+À l'aveugle : 28% des mots, réussite 76%
+Dorées/enfant 99.0  ternies 28.3  restaurées 239.4  holo 30.2  | Garde: 179.1 cartes distinctes utilisées
+Maudites domptées/enfant 53.1   Synergies achetées/enfant 23.3   Revanches/enfant 0.0 (gagnées 0%)
+===== V8 — + Revanche : a moins de 15%% de la cible, on rejoue la manche avec +1 Mult =====
+Encore en jeu à la semaine 36 : 72%   (arrêts: 21 frustration, 7 ennui ; semaine médiane d'arrêt 26)
+Profil des arrêts : 3.1 sessions/sem, skill 0.70  | des fidèles : 3.7 sessions/sem, skill 0.70
+Taux d'échec par manche (sur 23620 runs) : M1 2.9%  M2 10.6%  Boss 24.8%
+Rangs en semaine 36 : Blanc 15  Bronze 26  Argent 27  Or 17  Platine 9  Diamant 6
+Semaine médiane d'accès : Bronze 2  Argent 13  Or 16  Platine 19  Diamant 19
+Niveau de règle max (médiane) : 10/10
+Dictée réelle : sem 1-4 78% -> sem 33-36 75%   | témoin (école seule) 58% -> 57%
+Corrélation score de jeu / dictée réelle : r = 0.52
+À l'aveugle : 28% des mots, réussite 77%
+Dorées/enfant 90.2  ternies 22.9  restaurées 240.1  holo 30.2  | Garde: 186.1 cartes distinctes utilisées
+Maudites domptées/enfant 57.4   Synergies achetées/enfant 21.7   Revanches/enfant 19.4 (gagnées 86%)
+===== V9 — 7 ans : 6 mots/manche =====
+Encore en jeu à la semaine 36 : 71%   (arrêts: 26 frustration, 3 ennui ; semaine médiane d'arrêt 18)
+Profil des arrêts : 3.2 sessions/sem, skill 0.67  | des fidèles : 3.6 sessions/sem, skill 0.72
+Taux d'échec par manche (sur 22496 runs) : M1 3.6%  M2 11.4%  Boss 26.0%
+Rangs en semaine 36 : Blanc 20  Bronze 30  Argent 21  Or 14  Platine 11  Diamant 4
+Semaine médiane d'accès : Bronze 5  Argent 13  Or 14  Platine 16  Diamant 21
+Niveau de règle max (médiane) : 10/10
+Dictée réelle : sem 1-4 77% -> sem 33-36 72%   | témoin (école seule) 57% -> 57%
+Corrélation score de jeu / dictée réelle : r = 0.52
+À l'aveugle : 31% des mots, réussite 76%
+Dorées/enfant 92.4  ternies 23.5  restaurées 218.9  holo 26.7  | Garde: 172.0 cartes distinctes utilisées
+Maudites domptées/enfant 41.7   Synergies achetées/enfant 21.9   Revanches/enfant 19.1 (gagnées 85%)
