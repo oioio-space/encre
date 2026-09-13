@@ -54,9 +54,16 @@ func BuildDeck(c *Child, week, known []Word, states map[string]*WordState, garde
 	// The Garde is the child's own shelf of gold words, capped by the rank: one
 	// more slot per two ranks, never past five.
 	slots := min(cfg.GardeSlots+c.Rank/2, maxGardeSlots)
+	// Indexed once rather than searched per entry: a child's known words run to
+	// hundreds by June, and a linear scan for each of the five Garde slots made
+	// this the most expensive thing in a run.
+	byID := make(map[string]Word, len(known))
+	for _, w := range known {
+		byID[w.ID] = w
+	}
 	for _, id := range garde {
-		if i := slices.IndexFunc(known, func(w Word) bool { return w.ID == id }); i >= 0 {
-			d.Garde = append(d.Garde, known[i])
+		if w, ok := byID[id]; ok {
+			d.Garde = append(d.Garde, w)
 		}
 	}
 	// A tarnished word goes to the head: it is the one the child has stopped
@@ -78,13 +85,17 @@ func BuildDeck(c *Child, week, known []Word, states map[string]*WordState, garde
 
 	// Older words come back to be practised, so a gold one never takes a slot:
 	// it is already remembered, and the place belongs to a word that is not.
+	inGarde := make(map[string]bool, len(garde))
+	for _, id := range garde {
+		inGarde[id] = true
+	}
 	var pool []Word
 	for _, w := range known {
 		st := state(w.ID)
 		switch {
 		case st.Cursed:
 			d.Cursed = append(d.Cursed, w)
-		case st.Seen && !st.Gold && !slices.Contains(garde, w.ID):
+		case st.Seen && !st.Gold && !inGarde[w.ID]:
 			pool = append(pool, w)
 		}
 	}

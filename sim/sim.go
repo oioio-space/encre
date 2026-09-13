@@ -50,6 +50,11 @@ type Child struct {
 	states map[string]*engine.WordState
 	// knownByID is every word the child has met, so decks can bring them back.
 	knownByID map[string]engine.Word
+	// knownSorted is knownByID in a stable order, rebuilt only when a word is
+	// met for the first time. Go's map order is random and this list feeds the
+	// deck's shuffle, so it has to be sorted — and sorting hundreds of words a
+	// dozen times an evening was the second most expensive thing in a cohort.
+	knownSorted []engine.Word
 	// frustration is an exponential average of runs going badly.
 	frustration float64
 	runs        int
@@ -199,11 +204,7 @@ func (c *Child) playRun(week []engine.Word, weekNo int32, rng *rand.Rand, cfg en
 	// Sorted, because Go's map order is deliberately random and this list feeds
 	// the deck's shuffle: leaving it as the map gives it made two runs of the
 	// same seed disagree, which the determinism test caught.
-	known := make([]engine.Word, 0, len(c.knownByID))
-	for _, w := range c.knownByID {
-		known = append(known, w)
-	}
-	slices.SortFunc(known, func(a, b engine.Word) int { return strings.Compare(a.ID, b.ID) })
+	known := c.knownWords()
 	// The child keeps their gold words on the shelf; BuildDeck caps the list by
 	// rank. Without this the deck is nothing but fresh words, which is the
 	// hardest a week can possibly be and not what anyone plays.
@@ -248,6 +249,7 @@ func (c *Child) playRun(week []engine.Word, weekNo int32, rng *rand.Rand, cfg en
 				st = &engine.WordState{}
 				c.states[w.ID] = st
 				c.knownByID[w.ID] = w
+				c.knownSorted = nil
 			}
 			ctx := engine.Ctx{Levels: c.Level, Listens: 2, Boss: boss, Blind: blind}
 			correct := rng.Float64() < engine.PHat(&c.Child, w, st, ctx)
@@ -298,6 +300,20 @@ func (c *Child) playRun(week []engine.Word, weekNo int32, rng *rand.Rand, cfg en
 	}
 	c.frustration = 0.92*c.frustration + 0.08*weight
 	return lostAt
+}
+
+// knownWords is every word the child has met, in a stable order.
+func (c *Child) knownWords() []engine.Word {
+	if c.knownSorted != nil || len(c.knownByID) == 0 {
+		return c.knownSorted
+	}
+	out := make([]engine.Word, 0, len(c.knownByID))
+	for _, w := range c.knownByID {
+		out = append(out, w)
+	}
+	slices.SortFunc(out, func(a, b engine.Word) int { return strings.Compare(a.ID, b.ID) })
+	c.knownSorted = out
+	return out
 }
 
 // forgetUnplayed is the week passing over words that were not met.
