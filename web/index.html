@@ -3,19 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#0B0A14">
+<meta name="theme-color" content="#EAD9B4">
 <title>ENCRE — prototype clavier</title>
 <style>
-  /* Palette ENCRE_02 §3. Ni blanc ni noir purs. */
-  html, body { margin: 0; height: 100%; background: #0B0A14; overflow: hidden;
+  /* Palette ENCRE_02 §3, thème clair de ENCRE_06 §2. Ni blanc ni noir purs.
+     Le fond est celui du jeu : Ebitengine garde le rapport 390x844 ou 1280x720
+     et laisse des bandes quand la fenêtre a une autre forme — en noir elles se
+     voyaient comme un défaut, en parchemin elles disparaissent. */
+  html, body { margin: 0; height: 100%; background: #EAD9B4; overflow: hidden;
                /* Le tap ne doit ni zoomer ni sélectionner : le jeu gère ses propres appuis. */
                -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
                touch-action: none; }
   canvas { display: block; }
   #chargement { position: fixed; inset: 0; display: grid; place-items: center;
-                font: 14px system-ui, sans-serif; color: #55558A; }
+                font: 14px system-ui, sans-serif; color: #6E5738; }
   /* La goutte du logo pendant le premier chargement (ENCRE_04 §2). */
-  #goutte { width: 22px; height: 28px; background: #3A3866; margin: 0 auto 14px;
+  #goutte { width: 22px; height: 28px; background: #A88C63; margin: 0 auto 14px;
             border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
             clip-path: polygon(50% 0%, 100% 62%, 78% 100%, 22% 100%, 0% 62%);
             animation: tomber 1.4s ease-in-out infinite; }

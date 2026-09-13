@@ -60,6 +60,19 @@ func (k Key) Label() string {
 	}
 }
 
+// columnsPerAccentRow is how many keys the accent row holds. The letter rows
+// hold fewer and wider ones, which is what a key's proportion is judged on.
+const columnsPerAccentRow = 10
+
+// LetterColumns is how many letter keys a row of this layout holds. The accent
+// row always holds ten, narrower ones.
+func LetterColumns(l Layout) int {
+	if l == AZERTY {
+		return columnsPerAccentRow
+	}
+	return 7
+}
+
 // AccentRow is the row ENCRE_02 §11 keeps visible above the letters at all
 // times. The apostrophe and the hyphen ride with the accents because written
 // French needs them as often, and neither is reachable any other way.

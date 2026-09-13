@@ -34,12 +34,6 @@ import (
 	"github.com/oioio-space/encre/client/ui"
 )
 
-// Logical resolutions from brief/ENCRE_04_spec_technique.md §2.
-const (
-	portraitWidth, portraitHeight   = 390, 844
-	landscapeWidth, landscapeHeight = 1280, 720
-)
-
 // The light theme of ENCRE_06 §2 and §3, which overrides the night background
 // of ENCRE_02: a phone held at arm's length in daylight, read by a seven-year-
 // old, needs parchment and not ink.
@@ -93,11 +87,15 @@ type client struct {
 
 	// Geometry, recomputed on every Layout because the browser can rotate or
 	// resize the canvas at any moment.
-	screenW, screenH     int
-	outsideW             int
-	boardX, boardY       int
-	boardW, boardH       int
-	cardY, cardH, entryY int
+	screenW, screenH                   int
+	outsideW                           int
+	boardX, boardY                     int
+	boardW, boardH                     int
+	cardX, cardY, cardW, cardH, entryY int
+	// cellW is the width of an ordinary letter key. The two special keys are
+	// wider, so capping each key's height against its own width would make them
+	// tower over the letters; the whole row is capped against this instead.
+	cellW int
 
 	// held is the key under the finger. When it has accents and the finger
 	// stays past holdDelay, they open above it and the release picks one.
@@ -132,30 +130,24 @@ func newClient() (*client, error) {
 	return c, nil
 }
 
-// Layout reports the logical resolution for the current window and lays out the
-// bands of ENCRE_06 §4 inside it.
+// Layout reports the logical resolution for the current window and lays out
+// the bands inside it. The arithmetic lives in client/ui, where a test sweeps
+// it across every size a browser or a pocket can produce.
 func (c *client) Layout(outsideWidth, outsideHeight int) (int, int) {
 	c.outsideW = outsideWidth
-	layout := ui.Phone
-	if outsideHeight >= outsideWidth {
-		c.screenW, c.screenH = portraitWidth, portraitHeight
-		// Fixed band heights, ENCRE_06 §4: header 104, target bar 12, card 268,
-		// phrase and word 126, keyboard 334.
-		c.cardY, c.cardH = 104+12, 268
-		c.entryY = c.cardY + c.cardH + 126/2
-		c.boardX, c.boardY = 0, c.screenH-334
-		c.boardW, c.boardH = c.screenW, 334
-	} else {
-		// Tablet and computer keep AZERTY: the width is there, and matching the
-		// physical keyboard is worth more than alphabetical order (ENCRE_06 §2).
-		layout = ui.AZERTY
-		c.screenW, c.screenH = landscapeWidth, landscapeHeight
-		c.boardW, c.boardH = c.screenW*55/100, c.screenH*72/100
-		c.boardX, c.boardY = c.screenW-c.boardW, c.screenH-c.boardH
-		c.cardY, c.cardH = c.screenH*12/100, c.screenH*45/100
-		c.entryY = c.cardY + c.cardH + c.screenH*14/100
+	s := ui.NewScreen(outsideWidth, outsideHeight)
+	c.screenW, c.screenH = s.W, s.H
+	c.cardX, c.cardY = s.CardX, s.CardY
+	c.cardW, c.cardH, c.entryY = s.CardW, s.CardH, s.EntryY
+	c.boardX, c.boardY, c.boardW, c.boardH = s.BoardX, s.BoardY, s.BoardW, s.BoardH
+
+	c.kb = ui.NewKeyboard(s.Layout, c.boardW, c.boardH)
+	c.cellW = 0
+	for _, k := range c.kb.Keys() {
+		if k.Kind == ui.KeyRune && (c.cellW == 0 || k.W < c.cellW) {
+			c.cellW = k.W
+		}
 	}
-	c.kb = ui.NewKeyboard(layout, c.boardW, c.boardH)
 	if c.entry == nil {
 		c.entry = game.NewEntry(c.kb)
 	}
@@ -356,10 +348,7 @@ func (c *client) drawDiagnostics(screen *ebiten.Image) {
 		{fmt.Sprintf("%d×%d · %d dip · ×%.2f · %.0f px phys.", c.screenW, c.screenH, c.outsideW, dsf, ui.PhysicalPx(letter, c.screenW, c.outsideW, dsf)), cuir},
 		{fmt.Sprintf("%.0f img/s · %s · appui long : a c e i o u", ebiten.ActualFPS(), audioState), cuir},
 	}
-	cx := float64(c.screenW) / 2
-	if c.screenW > c.screenH {
-		cx = float64(c.boardX) / 2
-	}
+	cx := float64(c.cardX) + float64(c.cardW)/2
 	for i, l := range lines {
 		c.drawText(screen, l.s, cx, float64(18+i*16), textLabel, l.col)
 	}
@@ -381,25 +370,13 @@ func (c *client) letterSide() int {
 }
 
 func (c *client) drawCard(screen *ebiten.Image) {
-	w, h := 180.0, 240.0
-	if c.screenW > c.screenH {
-		w, h = 240, 320
-	}
-	x := float64(c.cardX()) - w/2
-	y := float64(c.cardY+c.cardH/2) - h/2
+	x, y := float64(c.cardX), float64(c.cardY)
+	w, h := float64(c.cardW), float64(c.cardH)
 	vector.FillRect(screen, float32(x), float32(y), float32(w), float32(h), parcheminClair, false)
 	vector.StrokeRect(screen, float32(x), float32(y), float32(w), float32(h), 1, parcheminVieux, false)
 
-	c.drawText(screen, "le mot à écrire", float64(c.cardX()), y+22, textLabel, cuir)
-	c.drawText(screen, words[c.word], float64(c.cardX()), y+h/2, textWord, encre)
-}
-
-// cardX is the horizontal centre of the card area.
-func (c *client) cardX() int {
-	if c.screenW > c.screenH {
-		return c.boardX / 2
-	}
-	return c.screenW / 2
+	c.drawText(screen, "le mot à écrire", x+w/2, y+22, textLabel, cuir)
+	c.drawText(screen, words[c.word], x+w/2, y+h/2, textWord, encre)
 }
 
 func (c *client) drawEntry(screen *ebiten.Image) {
@@ -407,7 +384,7 @@ func (c *client) drawEntry(screen *ebiten.Image) {
 	if shown == "" {
 		shown, col = "…", cuir
 	}
-	c.drawText(screen, shown, float64(c.cardX()), float64(c.entryY), textWord, col)
+	c.drawText(screen, shown, float64(c.cardX)+float64(c.cardW)/2, float64(c.entryY), textWord, col)
 }
 
 func (c *client) drawKeyboard(screen *ebiten.Image) {
@@ -491,8 +468,8 @@ func main() {
 	// On a computer the window opens in landscape, the orientation ENCRE_04 §2
 	// gives that device; the 390-wide portrait screen is for the phone.
 	mw, mh := ebiten.Monitor().Size()
-	scale := ui.WindowScale(landscapeWidth, landscapeHeight, mw, mh)
-	ebiten.SetWindowSize(landscapeWidth*scale, landscapeHeight*scale)
+	scale := ui.WindowScale(ui.LandscapeWidth, ui.LandscapeHeight, mw, mh)
+	ebiten.SetWindowSize(ui.LandscapeWidth*scale, ui.LandscapeHeight*scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if err := ebiten.RunGame(c); err != nil {
 		log.Fatal(err)
