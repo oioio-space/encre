@@ -7,6 +7,7 @@
 ![go](https://img.shields.io/badge/go-1.27-00ADD8?logo=go&logoColor=white)
 ![ebitengine](https://img.shields.io/badge/ebitengine-v2.10-d97757)
 ![cgo](https://img.shields.io/badge/cgo-interdit-4c1)
+[![licence](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
 **Le dépôt en est au tout début.** Le squelette du client Ebitengine ouvre une
 fenêtre ; le jeu lui-même est spécifié, chiffré et découpé en 33 tickets, mais
@@ -158,5 +159,10 @@ récompense de connexion, orthographe fausse affichée, classement au score.
 
 ## Licence
 
-Aucune licence n'est encore déclarée : tous droits réservés par défaut. Le code
-est lisible publiquement, mais pas réutilisable tant que ce fichier n'existe pas.
+[MIT](LICENSE) — © 2026 Mathieu Bachmann. Faites-en ce que vous voulez, gardez
+la mention de copyright.
+
+Elle couvre ce que contient ce dépôt, `brief/` compris. Les données tierces
+qu'il reste à intégrer gardent la leur : le lexique du ticket T10 arrivera avec
+sa propre licence, vérifiée et citée dans un `LICENSES.md` — c'est un critère
+d'acceptation du ticket, pas une intention.
