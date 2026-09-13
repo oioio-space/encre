@@ -86,11 +86,13 @@ type Ctx struct {
 	GoldPlayed int
 }
 
-// doubles maps a Talisman to the single Couleur whose chips it doubles.
-var doubles = map[TalismanID]Color{
-	Loupe:    Jumelles,
-	Couronne: Accentuees,
-	Miroir:   Sosies,
+// doubling maps a Couleur to the Talisman that doubles its chips. Keyed by
+// Couleur rather than by Talisman so the lookup is one probe per Couleur
+// instead of a walk over a map, whose order would not be stable anyway.
+var doubling = map[Color]TalismanID{
+	Jumelles:   Loupe,
+	Accentuees: Couronne,
+	Sosies:     Miroir,
 }
 
 // Score returns the chips a correct attempt earns and the multiplier they are
@@ -114,7 +116,12 @@ func Score(a Attempt, w Word, st *WordState, owned Talismans, combo float64, ctx
 // played.
 func scoreChips(a Attempt, w Word, st *WordState, owned Talismans, ctx Ctx, cfg Config) float64 {
 	chips := float64(w.Letters)
-	for colour, traps := range w.Traps {
+	// The Couleurs are walked in their fixed order, never in the map's. Floating
+	// addition is not associative, so a map's random order would let the server
+	// replay one run and find a different score — and ENCRE_04 §1 makes that
+	// recomputation the one that counts.
+	for _, colour := range Colors() {
+		traps := w.Traps[colour]
 		if traps == 0 {
 			continue
 		}
@@ -125,10 +132,8 @@ func scoreChips(a Attempt, w Word, st *WordState, owned Talismans, ctx Ctx, cfg 
 			continue
 		}
 		v := float64(traps) * cfg.ChipPerTrap * float64(ctx.Levels[colour])
-		for tal, doubled := range doubles {
-			if owned[tal] && doubled == colour {
-				v *= 2
-			}
+		if tal, ok := doubling[colour]; ok && owned[tal] {
+			v *= 2
 		}
 		chips += v
 	}

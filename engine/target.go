@@ -108,7 +108,10 @@ const (
 // client says about it is trusted.
 func PHat(c *Child, w Word, st *WordState, ctx Ctx) float64 {
 	difficulty := 0.0
-	for colour, traps := range w.Traps {
+	// Fixed order, for the same reason as the chips: a sum of floats taken in a
+	// map's order is not reproducible.
+	for _, colour := range Colors() {
+		traps := w.Traps[colour]
 		if traps == 0 {
 			continue
 		}

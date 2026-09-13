@@ -18,6 +18,16 @@ const manches = 3
 // run gets this, and the right thing to do is nothing.
 var ErrAlreadyApplied = errors.New("engine: this run was already applied")
 
+// bossOf maps the week's boss to the modifier its manche is played under.
+func bossOf(id BossID) Boss {
+	for i, b := range bosses {
+		if b == id {
+			return Boss(i)
+		}
+	}
+	return Chuchoteur
+}
+
 // Run is everything the client reports about one run (ENCRE_04 §4).
 type Run struct {
 	ID        string
@@ -184,7 +194,14 @@ func Apply(c *Child, run Run, out Outcome, states map[string]*WordState, day, we
 			states[a.WordID] = st
 		}
 		events = append(events, Record(st, a, c.LearnRate, day, week, cfg, draw)...)
-		events = append(events, c.GainXP(w, a, Ctx{Boss: NoBoss}, week, cfg)...)
+		// The third manche is the boss one (ENCRE_01), and a boss manche is one
+		// of only two ways to earn XP. Passing NoBoss for every attempt, as a
+		// first version did, meant no child ever levelled a Couleur at all.
+		boss := NoBoss
+		if a.Manche == manches-1 {
+			boss = bossOf(run.Deck.Boss)
+		}
+		events = append(events, c.GainXP(w, a, Ctx{Boss: boss}, week, cfg)...)
 	}
 
 	if out.Won {
