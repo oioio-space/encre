@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"image/color"
 	"log"
+	"math"
 	"os"
 	"time"
 
@@ -46,6 +47,9 @@ var (
 	encre          = color.RGBA{R: 0x24, G: 0x23, B: 0x42, A: 0xFF} // texte principal
 	brique         = color.RGBA{R: 0x8F, G: 0x2F, B: 0x1E, A: 0xFF} // texte chaud
 	braise         = color.RGBA{R: 0xF5, G: 0xA7, B: 0x42, A: 0xFF} // formes chaudes
+	flamme         = color.RGBA{R: 0xFF, G: 0xE0, B: 0x8A, A: 0xFF} // liseré des arêtes tournées vers la bougie
+	ambreBrule     = color.RGBA{R: 0xD9, G: 0x62, B: 0x2B, A: 0xFF} // lumière du sceau
+	sangSeche      = color.RGBA{R: 0x5A, G: 0x0F, B: 0x14, A: 0xFF} // creux du sceau
 )
 
 // Text comes from one 12-pixel bitmap face enlarged by whole factors, never
@@ -67,6 +71,15 @@ var words = []string{
 }
 
 const (
+	// The light of ENCRE_02 §4: a candle at the top left. Shadows fall to the
+	// bottom right, one pixel; the edges turned towards the candle carry a rim
+	// of Flamme; nothing is lit from underneath. It is the only relief the
+	// charter allows — gradients are forbidden — so losing it flattens
+	// everything into the paper.
+	cornerRadius = 6 // ENCRE_06 §4
+	shadowDepth  = 1
+	rimWidth     = 1
+
 	keyInset  = 2                      // the drawn key sits inside its touch cell
 	hemHeight = 3                      // ourlet bas (ENCRE_06 §4)
 	pressSink = 2                      // translateY on press (ENCRE_06 §4)
@@ -319,6 +332,90 @@ func (c *client) drawText(dst *ebiten.Image, s string, cx, cy float64, scale int
 	text.Draw(dst, s, c.face, op)
 }
 
+// roundedRect fills a rectangle with the 6-pixel corner ENCRE_06 §4 gives every
+// surface of the game. Sharp corners are what made the keys read as a grid
+// rather than as things to press.
+func roundedRect(dst *ebiten.Image, x, y, w, h, r float32, clr color.Color) {
+	r = min(r, w/2, h/2)
+	var p vector.Path
+	p.MoveTo(x+r, y)
+	p.LineTo(x+w-r, y)
+	p.ArcTo(x+w, y, x+w, y+r, r)
+	p.LineTo(x+w, y+h-r)
+	p.ArcTo(x+w, y+h, x+w-r, y+h, r)
+	p.LineTo(x+r, y+h)
+	p.ArcTo(x, y+h, x, y+h-r, r)
+	p.LineTo(x, y+r)
+	p.ArcTo(x, y, x+r, y, r)
+	p.Close()
+
+	op := &vector.DrawPathOptions{}
+	op.ColorScale.ScaleWithColor(clr)
+	vector.FillPath(dst, &p, &vector.FillOptions{}, op)
+}
+
+// raised draws a surface standing off the page: its shadow cast down and right,
+// a body of Cuir clair, the face sitting on it with a hem of that body showing
+// along the bottom, and the rim of Flamme on the two edges turned towards the
+// candle (ENCRE_02 §4).
+//
+// Pass hem=0 and rim=false to sink it. A thing pressed has moved away from the
+// light, and the charter forbids lighting anything from below — so a pressed
+// key loses its rim rather than gaining a darker one.
+func raised(dst *ebiten.Image, x, y, w, h, hem float32, face color.Color, rim bool) {
+	if hem > 0 {
+		roundedRect(dst, x+shadowDepth, y+shadowDepth, w, h, cornerRadius, cuir)
+	}
+	roundedRect(dst, x, y, w, h, cornerRadius, cuirClair)
+	roundedRect(dst, x, y, w, h-hem, cornerRadius, parcheminVieux)
+	roundedRect(dst, x+rimWidth, y+rimWidth, w-2*rimWidth, h-hem-2*rimWidth, cornerRadius, face)
+	if !rim {
+		return
+	}
+	// One pixel, along the top and the left only. An even outline would read as
+	// a border rather than as light falling on one side, and anything thicker
+	// reads as a yellow line drawn round the key.
+	roundedRect(dst, x+rimWidth, y+rimWidth, w-2*rimWidth, rimWidth, 0, flamme)
+	roundedRect(dst, x+rimWidth, y+rimWidth, rimWidth, h-hem-2*rimWidth, 0, flamme)
+}
+
+// drawEraser draws the gomme of ENCRE_06 §4: a block leaning back, with the
+// darker band a school eraser has round its middle.
+//
+// The lean is drawn as two stacked slices rather than by rotating anything —
+// rotation resamples the pixels off the grid, which is the one thing the pixel
+// look cannot survive (ENCRE_02 §15).
+func drawEraser(dst *ebiten.Image, cx, cy, w float32) {
+	h := w * 0.58
+	half := w / 2
+	for i := range 2 {
+		sx := cx - half + float32(i)*half
+		sy := cy - h/2 - float32(1-i)*h*0.16
+		roundedRect(dst, sx+shadowDepth, sy+shadowDepth, half+1, h, 2, cuir)
+		roundedRect(dst, sx, sy, half+1, h, 2, parchemin)
+		roundedRect(dst, sx, sy+h*0.58, half+1, h*0.42, 2, cuirClair)
+	}
+}
+
+// drawSeal draws the wax seal of ENCRE_06 §4, in the three tones ENCRE_06 §3
+// gives it: Brique for the wax, Sang séché for the hollow, Ambre brûlé for the
+// light on the side facing the candle.
+func drawSeal(dst *ebiten.Image, cx, cy, r float32) {
+	op := &vector.DrawPathOptions{AntiAlias: true}
+	circle := func(x, y, rad float32, clr color.Color) {
+		var p vector.Path
+		p.Arc(x, y, rad, 0, 2*math.Pi, vector.Clockwise)
+		p.Close()
+		o := *op
+		o.ColorScale.ScaleWithColor(clr)
+		vector.FillPath(dst, &p, &vector.FillOptions{}, &o)
+	}
+	circle(cx+shadowDepth, cy+shadowDepth, r, cuir)
+	circle(cx, cy, r, brique)
+	circle(cx-r*0.28, cy-r*0.28, r*0.34, ambreBrule)
+	circle(cx+r*0.10, cy+r*0.10, r*0.42, sangSeche)
+}
+
 // drawDiagnostics reports the measurements ticket T00 asks for, on screen
 // because the device to be measured is a phone in someone's hand with no
 // console to read.
@@ -370,13 +467,12 @@ func (c *client) letterSide() int {
 }
 
 func (c *client) drawCard(screen *ebiten.Image) {
-	x, y := float64(c.cardX), float64(c.cardY)
-	w, h := float64(c.cardW), float64(c.cardH)
-	vector.FillRect(screen, float32(x), float32(y), float32(w), float32(h), parcheminClair, false)
-	vector.StrokeRect(screen, float32(x), float32(y), float32(w), float32(h), 1, parcheminVieux, false)
+	x, y := float32(c.cardX), float32(c.cardY)
+	w, h := float32(c.cardW), float32(c.cardH)
+	raised(screen, x, y, w, h, 2, parcheminClair, true)
 
-	c.drawText(screen, "le mot à écrire", x+w/2, y+22, textLabel, cuir)
-	c.drawText(screen, words[c.word], x+w/2, y+h/2, textWord, encre)
+	c.drawText(screen, "le mot à écrire", float64(x+w/2), float64(y)+26, textLabel, cuir)
+	c.drawText(screen, words[c.word], float64(x+w/2), float64(y+h/2), textWord, encre)
 }
 
 func (c *client) drawEntry(screen *ebiten.Image) {
@@ -393,39 +489,42 @@ func (c *client) drawKeyboard(screen *ebiten.Image) {
 
 	for _, k := range c.kb.Keys() {
 		pressed := (c.holding && sameKey(c.held, k)) || (c.echoTicks > 0 && sameKey(c.echoKey, k))
-		c.drawKey(screen, k, float64(c.boardX+k.X), float64(c.boardY+k.Y), float64(k.W), float64(k.H), pressed)
+		drawKey(screen, c, k, float64(c.boardX+k.X), float64(c.boardY+k.Y), float64(k.W), float64(k.H), pressed)
 	}
 }
 
-// drawKey draws one key with the hem of ENCRE_06 §4: a three-pixel lip of Cuir
-// clair under the face, brought down to one and the face sunk by two when it is
-// pressed. That lip is the whole of the key's relief — the charter allows no
-// gradient — so losing it loses the affordance.
-func (c *client) drawKey(dst *ebiten.Image, k ui.Key, x, y, w, h float64, pressed bool) {
-	x, y, w, h = x+keyInset, y+keyInset, w-2*keyInset, h-2*keyInset
-
-	hem := float64(hemHeight)
+// drawKey draws one key in the language of ENCRE_06 §4: a rounded face on a
+// body of Cuir clair, a three-pixel hem of that body along the bottom, and the
+// candle's rim on the top and left. Pressing takes the hem to one pixel, sinks
+// the face by two and puts the rim out.
+func drawKey(dst *ebiten.Image, c *client, k ui.Key, x, y, w, h float64, pressed bool) {
+	hem := float32(hemHeight)
 	if pressed {
 		hem = 1
 		y += pressSink
 		h -= pressSink
 	}
-	vector.FillRect(dst, float32(x), float32(y), float32(w), float32(h), cuirClair, false)
-	vector.FillRect(dst, float32(x), float32(y), float32(w), float32(h-hem), parcheminClair, false)
-	vector.StrokeRect(dst, float32(x), float32(y), float32(w), float32(h-hem), 1, parcheminVieux, false)
+	face := parcheminClair
+	if k.Kind != ui.KeyRune {
+		face = parchemin
+	}
+	raised(dst, float32(x), float32(y), float32(w), float32(h), hem, face, !pressed)
 
-	label, col, scale := k.Label(), encre, textKey
+	inner := h - float64(hem)
 	switch k.Kind {
 	case ui.KeyErase:
-		col, scale = cuir, textLabel
+		drawEraser(dst, float32(x+w/2), float32(y+inner*0.36), float32(min(w*0.62, inner*0.66)))
+		c.drawText(dst, "efface", x+w/2, y+inner*0.78, textLabel, cuir)
 	case ui.KeyValidate:
-		col, scale = brique, textLabel
+		drawSeal(dst, float32(x+w/2), float32(y+inner*0.38), float32(min(w*0.20, inner*0.24)))
+		c.drawText(dst, "valide", x+w/2, y+inner*0.78, textLabel, brique)
+	default:
+		c.drawText(dst, k.Label(), x+w/2, y+inner/2, textKey, encre)
 	}
-	c.drawText(dst, label, x+w/2, y+(h-hem)/2, scale, col)
 
 	// A dot marks the keys that hold more under a long press.
 	if k.Kind == ui.KeyRune && len(ui.Variants(k.Rune)) > 0 {
-		vector.FillRect(dst, float32(x+w-5), float32(y+3), 2, 2, cuirClair, false)
+		roundedRect(dst, float32(x+w-6), float32(y+4), 2, 2, 1, cuirClair)
 	}
 }
 
