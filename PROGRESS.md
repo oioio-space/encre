@@ -2,16 +2,31 @@
 
 ## Current state
 
-- v0.0.0 — projet généré depuis go-starter le <date> ; squelette + gates verts.
+- v0.0.0 — projet généré depuis go-starter le 2026-09-13 ; squelette + gates verts.
+- Brief de conception dans `brief/` : règles du jeu, charte graphique, contenu
+  pédagogique, spec technique, backlog, design.
+- `cmd/client` ouvre une fenêtre Ebitengine v2.10.2 (résolution logique
+  portrait/paysage de ENCRE_04 §2). Builds natif **et** `GOOS=js GOARCH=wasm`
+  verts, sans CGO.
 
 ## Roadmap
 
-- [ ] Remplacer `Greet` par la première vraie API.
-- [ ] Remplir la section Architecture de CLAUDE.md.
-- [ ] <prochaines étapes>
+- [ ] **Étape 0** (ENCRE_04 §2) — prototype clavier dessiné en WASM, dix mots
+      accentués, sur la tablette *et* le téléphone réels : valide la taille des
+      touches, la latence audio et le chargement avant tout le reste.
+- [ ] Porter `brief/simulation_dictee.go` dans le paquet `engine` (ENCRE_04 §3-4) :
+      pur Go, zéro dépendance, 100 % testé.
+- [ ] Remplacer le placeholder `Greet` / `cmd/encre` par la structure de la spec
+      (`cmd/client`, `cmd/server`, `engine/`, `lexique/`, `content/`).
+- [ ] Remplir la section Architecture de CLAUDE.md, dont la ligne `HOT_PATHS:`
+      une fois la boucle de jeu écrite.
+- [ ] Écrire un vrai README (le gabarit du kit est encore en place).
+- [ ] La suite : `brief/ENCRE_05_backlog.md`.
 
 ## Log
 
 | Date | Change |
 |------|--------|
-| <date> | Bootstrap depuis go-starter (mise, hooks, agents, skills, CI). |
+| 2026-09-13 | Bootstrap depuis go-starter (mise, hooks, agents, skills, CI). |
+| 2026-09-13 | Brief de conception ajouté ; `simulation_dictee.go` sorti du build (`//go:build ignore`). |
+| 2026-09-13 | Ebitengine v2.10.2 + squelette `cmd/client` ; natif et js/wasm verts, pure Go. |
