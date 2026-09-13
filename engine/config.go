@@ -48,18 +48,22 @@ type Config struct {
 	// XPPerLevel is the XP a level of a Couleur costs, multiplied by the level.
 	XPPerLevel float64
 	// LevelCooldownW is the weeks between two level-ups of one Couleur.
-	LevelCooldownW int
+	LevelCooldownW int32
 	// LevelMax is as high as a Couleur goes.
 	LevelMax int
 	// GoldDays is the distinct days of success a word needs to turn gold, and
 	// GoldMinSpanDays the span they must cover — so gold means remembered, not
 	// drilled in one sitting.
-	GoldDays, GoldMinSpanDays int
+	GoldDays int
+	// GoldMinSpanDays is in days, and carries the type days are counted in.
+	GoldMinSpanDays int32
 	// TarnishWeeks is how long a gold word may go unplayed before it tarnishes.
-	TarnishWeeks int
+	TarnishWeeks int32
 	// CurseFails and CurseWeeks are the failures, and the weeks they fall in,
 	// that curse a word.
-	CurseFails, CurseWeeks int
+	CurseFails int
+	// CurseWeeks is in weeks, and carries the type weeks are counted in.
+	CurseWeeks int32
 	// HoloOdds and PolyOdds are the chances a word comes back shining.
 	HoloOdds, PolyOdds float64
 	// RevancheWindow is the share of the target a lost manche must have reached

@@ -81,10 +81,10 @@ func TestAGoldWordLeftAloneForFourWeeksTarnishes(t *testing.T) {
 	cfg := engine.DefaultConfig()
 	st := &engine.WordState{Gold: true, LastPlayedW: 2}
 
-	if got := engine.Tarnish(st, 2+int32(cfg.TarnishWeeks)-1, cfg); got {
+	if got := engine.Tarnish(st, 2+cfg.TarnishWeeks-1, cfg); got {
 		t.Error("the word tarnished a week early")
 	}
-	if got := engine.Tarnish(st, 2+int32(cfg.TarnishWeeks), cfg); !got {
+	if got := engine.Tarnish(st, 2+cfg.TarnishWeeks, cfg); !got {
 		t.Errorf("the word did not tarnish after %d weeks", cfg.TarnishWeeks)
 	}
 	if !st.Tarnished {

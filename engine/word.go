@@ -105,7 +105,7 @@ func remembered(st *WordState, cfg Config) bool {
 		return false
 	}
 	first, last := slices.Min(st.SuccessDays), slices.Max(st.SuccessDays)
-	return int(last-first) >= cfg.GoldMinSpanDays
+	return last-first >= cfg.GoldMinSpanDays
 }
 
 // recentFails counts the misses inside the curse's window, so a word missed
@@ -113,7 +113,7 @@ func remembered(st *WordState, cfg Config) bool {
 func recentFails(st *WordState, week int32, cfg Config) int {
 	n := 0
 	for _, w := range st.FailWeeks {
-		if int(week-w) < cfg.CurseWeeks {
+		if week-w < cfg.CurseWeeks {
 			n++
 		}
 	}
@@ -137,7 +137,7 @@ func drawShine(rng *rand.Rand, cfg Config) Shine {
 // changed. A tarnished word pays double, which is how the game pulls a child
 // back to something they have stopped meeting.
 func Tarnish(st *WordState, week int32, cfg Config) bool {
-	if !st.Gold || st.Tarnished || int(week-st.LastPlayedW) < cfg.TarnishWeeks {
+	if !st.Gold || st.Tarnished || week-st.LastPlayedW < cfg.TarnishWeeks {
 		return false
 	}
 	st.Tarnished = true

@@ -29,9 +29,15 @@ type Child struct {
 	Level map[Color]int
 	Aff   map[Color]float64
 	// LearnRate is how fast mastery moves on a success.
-	LearnRate     float64
-	XP            map[Color]float64
-	LevelUpW      map[Color]int32
+	LearnRate float64
+	XP        map[Color]float64
+	// NextLevelW is the first week a Couleur may level again. It holds the week
+	// the cooldown ENDS rather than the one the last level-up happened, so that
+	// its zero value means "allowed now": week zero is a real week, and using it
+	// as the sentinel for "never levelled" froze every Couleur for three weeks.
+	NextLevelW map[Color]int32
+	// LastRankW is the week the rank last moved, so only one is won per week.
+	LastRankW     int32
 	Base          RollingRate
 	Unlocked      []TalismanID
 	BossWinsTotal int
