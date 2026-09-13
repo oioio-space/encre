@@ -21,7 +21,8 @@
 - [ ] Remplir la section Architecture de CLAUDE.md, dont la ligne `HOT_PATHS:`
       une fois la boucle de jeu écrite.
 - [ ] Écrire un vrai README (le gabarit du kit est encore en place).
-- [ ] La suite : `brief/ENCRE_05_backlog.md`.
+- La suite vit dans **bd** : `bd ready` donne le travail débloqué, `bd list -t epic` la
+      carte. `PROGRESS.md` garde le récit et le journal, plus les tâches.
 
 ## Log
 
@@ -31,3 +32,4 @@
 | 2026-09-13 | Brief de conception ajouté ; `simulation_dictee.go` sorti du build (`//go:build ignore`). |
 | 2026-09-13 | Ebitengine v2.10.2 + squelette `cmd/client` ; natif et js/wasm verts, pure Go. |
 | 2026-09-13 | Go 1.27.1 ; golangci-lint 2.13.2 (première build avec go1.27) ; plus aucune CVE stdlib. |
+| 2026-09-13 | beads (bd) intégré ; 8 epics / 37 tâches depuis ENCRE_05 ; gate `Bead:` sur chaque commit. |

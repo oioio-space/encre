@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Git native post-commit hook — re-arm the /simplify review gate.
+# Thin shim: bd (beads) owns `core.hooksPath` (set to .beads/hooks by `bd hooks
+# install`), but .githooks/ stays the single source of truth for the gates —
+# this file must never re-implement or copy them. `bd init` wrote a verbatim
+# copy of .githooks/post-commit here, which would have drifted the moment the
+# kit's hook changed; delegating instead keeps one definition.
 #
-# Runs after every successful commit (via core.hooksPath=.githooks). Clears the
-# /simplify review attestation marker so the NEXT commit must re-run the full review.
-# This is a defence-in-depth measure on top of the staged-diff-hash key in pre-commit.
+# No beads integration block: `bd hooks list` manages pre-commit, post-merge,
+# pre-push, post-checkout and prepare-commit-msg — not post-commit.
 set -euo pipefail
 
-# Re-arm the pre-commit review gate: clear the approval marker so the NEXT commit
-# must re-run the full review (defence-in-depth on top of the staged-diff-hash key).
-rm -f "$(git rev-parse --git-dir)/claude-simplify-ok" 2>/dev/null || true
+repo_root="$(git rev-parse --show-toplevel)"
+exec "$repo_root/.githooks/post-commit" "$@"

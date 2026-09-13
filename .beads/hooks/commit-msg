@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Thin shim: bd (beads) owns `core.hooksPath` (set to .beads/hooks by `bd hooks
+# install`), but .githooks/ stays the single source of truth for the gates —
+# this file must never re-implement or copy them. To change this hook's
+# behaviour, edit .githooks/commit-msg, never this file.
+#
+# No beads integration block: `bd hooks list` manages pre-commit, post-merge,
+# pre-push, post-checkout and prepare-commit-msg — there is no bd-managed
+# commit-msg hook to chain to.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+exec "$repo_root/.githooks/commit-msg" "$@"

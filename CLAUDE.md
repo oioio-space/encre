@@ -92,6 +92,28 @@ a **substantial** diff; a trivial diff is cleared inline:
 | `commit-docs-review` | `scribe` (Haiku) README/PROGRESS sync |
 
 
+## bd à 100 % (Mathieu, 2026-09-13) — tenu par des mécanismes, pas par la vigilance
+
+- **Chaque commit cite son bead** : trailer `Bead: encre-xxx[, encre-yyy]` en fin de
+  message. `.githooks/commit-msg` (shim `.beads/hooks/commit-msg`) refuse le commit
+  sinon, et vérifie que chaque id existe vraiment (`bd show`). Pas de bead ?
+  `bd create … --parent <epic>` d'abord. Seuls les sujets `Merge `/`fixup!`/`squash!`
+  sont exemptés.
+- **Chaque bead a un parent** : huit epics de tête (`bd list -t epic`), zéro orphelin.
+  Le backlog produit vient de `brief/ENCRE_05_backlog.md` ; `ep-socle` porte le dépôt
+  lui-même et ne doit jamais manger le produit.
+- **Réclamer avant, clore après, dans la même session** : `bd update <id> --claim`
+  avant de commencer, `bd close <id> -r "<hash> …"` avec le commit comme preuve dès
+  que c'est livré.
+- **Les shims ne copient jamais les gates** : `.githooks/` est la seule source de
+  vérité. `bd init` avait écrit des *copies* verbatim de `pre-commit`, `pre-push` et
+  `post-commit` dans `.beads/hooks/` — elles auraient dérivé au premier changement du
+  kit. Chaque shim délègue désormais à `.githooks/<nom>` puis exécute le bloc beads ;
+  `mise run lint:sh` les passe au shellcheck pour qu'un shim cassé fasse échouer le
+  build au lieu de désactiver silencieusement toute la chaîne.
+- **Pas de TodoWrite ni de TODO en markdown** : le suivi vit dans bd. `PROGRESS.md`
+  garde le récit et le journal, pas les tâches.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker
 

@@ -121,7 +121,9 @@ run = "./scripts/rtkx.sh ./scripts/lint.sh --staged"
 
 [tasks."lint:sh"]
 description = "Lint the bash hook scripts with shellcheck"
-run = "shellcheck -x --source-path=SCRIPTDIR .githooks/* .claude/hooks/*.sh .claude/hooks/lib/*.sh scripts/*.sh"
+# .beads/hooks/* are the shims that delegate to .githooks — they carry the whole
+# gate chain, so a broken one must fail the build, not silently skip every gate.
+run = "shellcheck -x --source-path=SCRIPTDIR .githooks/* .beads/hooks/* .claude/hooks/*.sh .claude/hooks/lib/*.sh scripts/*.sh"
 
 [tasks."lint:yaml"]
 description = "Lint YAML config formatting with yamlfmt"
@@ -199,8 +201,21 @@ description = "Pre-commit gate: tidy artifacts + block any staged artifact"
 run = "./scripts/clean-artifacts.sh --check"
 
 [tasks."hooks:install"]
-description = "Point git at .githooks (pre-commit + post-commit + pre-push)"
+description = "Point git at .githooks, or at .beads/hooks when its shims delegate there"
 run = "./scripts/install-hooks.sh"
+
+[tasks."commit-msg:test"]
+description = "Bite test for the Bead: trailer gate (what it must refuse AND accept)"
+# Not in `ci`: the Dolt database is gitignored, so a fresh CI clone has no beads
+# to verify ids against. Run it locally after touching .githooks/commit-msg.
+run = "./.githooks/commit-msg_test.sh"
+
+[tasks."beads:export"]
+description = "Refresh the .beads/issues.jsonl snapshot that travels in git"
+# The Dolt DB is gitignored and there is no Dolt remote yet, so this JSONL export
+# is what actually carries the backlog off this machine. Re-run before committing
+# when beads changed.
+run = "bd export -o .beads/issues.jsonl"
 
 [tasks.setup]
 description = "One-shot bootstrap: install tools + wire git hooks (+ optional rtk)"

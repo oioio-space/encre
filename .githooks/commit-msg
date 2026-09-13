@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Git native commit-msg hook — every commit must cite the bead(s) it does the
+# work for.
+#
+# Installed via `git config core.hooksPath .githooks`, or run through the
+# .beads/hooks/commit-msg shim when bd owns core.hooksPath (see
+# scripts/install-hooks.sh); either way this file is versioned and fires for
+# everyone on every `git commit`.
+#
+# WHY THIS EXISTS: Mathieu's requirement on 2026-09-13 — "ajoute beads au projet
+# et utilise le à 100 %". A tracker only gets used 100% if something checks. The
+# very first evidence arrived within the minute: `bd init` itself committed 19
+# files with no bead, no /simplify attestation and no gate run, because it set
+# core.hooksPath to .beads/hooks before committing. Citing a bead has to be
+# mechanical, not a habit — so this hook refuses any commit whose message has no
+# `Bead:` trailer naming at least one id that actually exists in bd.
+#
+# $1 is the path to the file holding the proposed commit message (the contract
+# for a commit-msg hook).
+set -euo pipefail
+
+msg_file="$1"
+
+# git-generated commits (merges, `commit --fixup`/`--squash` targets) never carry
+# a Bead: trailer and are not the work this gate guards against — only their
+# SUBJECT line is checked, so a body that happens to start with one of these
+# words on another line does not exempt a real commit.
+subject="$(grep -vE '^[[:space:]]*#' "$msg_file" | head -n1)"
+case "$subject" in
+Merge\ * | fixup!* | squash!*)
+  exit 0
+  ;;
+esac
+
+if ! command -v bd >/dev/null 2>&1; then
+  printf '\033[31m✗ Commit blocked: bd is required but is not on PATH.\033[0m\n' >&2
+  exit 1
+fi
+
+# Strip comment lines before handing the message to git-interpret-trailers — it
+# treats a line starting with the configured comment char as the start-of-body
+# marker, so this errs on the side of stripping them ourselves.
+trailers="$(grep -vE '^[[:space:]]*#' "$msg_file" | git interpret-trailers --parse)"
+
+# Collect every value from a `Bead:` trailer (key match is case-insensitive,
+# matching git-interpret-trailers itself), split on commas and whitespace so both
+# `Bead: encre-abc, encre-def` and `Bead: encre-abc encre-def` work.
+ids=()
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  key="${line%%:*}"
+  value="${line#*:}"
+  if [[ "${key,,}" == "bead" ]]; then
+    for id in ${value//,/ }; do
+      ids+=("$id")
+    done
+  fi
+done <<<"$trailers"
+
+fail() {
+  printf '\033[31m✗ %s\033[0m\n' "$1" >&2
+  printf '  Every commit must cite the bead(s) it does the work for, as a trailer at\n' >&2
+  printf '  the end of the message:\n' >&2
+  printf '      Bead: encre-xxx\n' >&2
+  printf '      Bead: encre-xxx, encre-yyy   (several ids allowed)\n' >&2
+  printf '  No bead yet? Create one under an epic — no orphans:\n' >&2
+  printf '      bd create "…" -t task -p 2 --parent <epic>\n' >&2
+  printf '  (Emergency bypass only: git commit --no-verify)\n' >&2
+  exit 1
+}
+
+if [[ ${#ids[@]} -eq 0 ]]; then
+  fail "Commit blocked: no 'Bead:' trailer found in the commit message."
+fi
+
+for id in "${ids[@]}"; do
+  if [[ ! "$id" =~ ^encre-[a-z0-9]{3}(\.[0-9]+)*$ ]]; then
+    fail "Commit blocked: '$id' is not a valid bead id (expected encre-xxx, e.g. encre-bty or encre-bty.1)."
+  fi
+  # bd shells out to an embedded Dolt engine; a hung query must fail the commit
+  # loudly rather than hang the terminal or be silently skipped.
+  timeout_s="${BEADS_HOOK_TIMEOUT:-30}"
+  status=0
+  timeout "$timeout_s" bd show "$id" --json >/dev/null 2>&1 || status=$?
+  if [[ $status -eq 124 ]]; then
+    fail "Commit blocked: bd show timed out for '$id' after ${timeout_s}s — bd is a hard requirement here, not best-effort."
+  elif [[ $status -ne 0 ]]; then
+    fail "Commit blocked: bead '$id' was not found by bd show."
+  fi
+done
+
+printf '\033[32m✓ Bead trailer verified: %s\033[0m\n' "${ids[*]}"
