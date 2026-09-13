@@ -70,6 +70,15 @@ type Ctx struct {
 	Levels map[Color]int
 	// Fast says the answer came inside the Chronomètre's window.
 	Fast bool
+	// Listens is how many times the word may be heard: two ordinarily, one
+	// under the Chuchoteur.
+	Listens int
+	// Sentence says the word is asked inside a sentence rather than alone.
+	Sentence bool
+	// Blind is the condition PHat weighs when estimating a blind attempt.
+	// Score does not read it: there, the Attempt is the record of what
+	// happened, and Attempt.Blind is what counts.
+	Blind bool
 	// Boss is the modifier of the manche, NoBoss outside one.
 	Boss Boss
 	// GoldPlayed counts the gold words already played this run, for the
