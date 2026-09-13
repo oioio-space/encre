@@ -65,7 +65,10 @@ type Deck struct {
 	Cursed []Word
 	Rooms  [2][2]RoomID
 	Boss   BossID
-	Seed   int64
+	// Seed is what the deck was drawn from. It is unsigned because that is what
+	// a PRNG seed is — every bit pattern is a valid seed — and because the
+	// signed form forced a conversion at the only place it was ever used.
+	Seed uint64
 }
 
 // RoomID names a room offered between two manches.
