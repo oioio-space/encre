@@ -210,7 +210,11 @@ mkdir -p dist/web
 GOOS=js GOARCH=wasm go build -o dist/web/encre.wasm ./cmd/client
 cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/web/
 cp web/index.html dist/web/
-printf 'dist/web: %s\n' "$(du -h dist/web/encre.wasm | cut -f1) de wasm"
+# Pre-compressed once here rather than per request: the wasm is 18 MB, and
+# gzipping it on every fetch would cost more than it saves.
+gzip -9 -kf dist/web/encre.wasm
+printf 'dist/web: %s de wasm, %s servi en gzip\n' \
+  "$(du -h dist/web/encre.wasm | cut -f1)" "$(du -h dist/web/encre.wasm.gz | cut -f1)"
 """
 
 [tasks."wasm:serve"]
