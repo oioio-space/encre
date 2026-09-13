@@ -12,6 +12,11 @@
   est la séance sur tablette et téléphone réels (`encre-1yv.1`).
 - **Paquet `engine` complet** : Config, Score, PHat/Targets, transitions du mot,
   rang et XP, BuildDeck, Replay/Apply. Pur Go, zéro dépendance, 95,5 % couvert.
+- **Paquet `lexique`** : `Analyze` nomme les Couleurs et les règles fines d'un
+  mot, confirmées sur la prononciation de Lexique 3.83 (CC BY-SA 4.0) — le « on »
+  de *bonne* n'est pas la nasale de *pont*. `AnalyzeSentence` ajoute les
+  Accordées que seul le contexte révèle. Mesuré à **100 %** sur 211 mots de CE1
+  étiquetés à la main (91,0 % au premier passage) ; T10 demande 90 %.
 - **`sim`** rejoue 100 enfants sur 36 semaines à travers le vrai moteur et tient
   les seuils du brief : rétention 96 %, M1 3,3 %, boss 23,5 %, en 2,8 s.
 - Builds natif **et** `GOOS=js GOARCH=wasm` verts, sans CGO. WASM : 18 Mo bruts,
@@ -45,3 +50,4 @@ production et le socle du dépôt en P2. Le dépôt ne prime pas sur le jeu.
 | 2026-09-13 | **Epic Étape 0 levé** sur mesures émulées (décision de Mathieu) : 48 px → 165 px phys., latence 32 ms, 5,56 s en 4G. |
 | 2026-09-13 | Disposition balayée sur 16 formats à chaque build ; relief des touches selon ENCRE_02 §4 et ENCRE_06 §4. |
 | 2026-09-13 | README réel (ancré sur la simulation d'équilibrage), topics GitHub, licence MIT. |
+| 2026-09-13 | **T10 — paquet `lexique`** : détection des Couleurs confirmée sur la phonétique ; 100 % sur 211 mots CE1 ; Lexique 3.83 embarqué, attribué dans `LICENSES.md`. |

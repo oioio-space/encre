@@ -1,0 +1,225 @@
+# ce1_200.tsv — 200 mots de CE1 étiquetés à la main.
+#
+# Les mots viennent des tables d'exemples d'ENCRE_03 §2, des invariables de §1,
+# des trois semaines de §3, et du vocabulaire courant d'un CE1 (animaux, école,
+# maison, couleurs, corps, nourriture, verbes du premier groupe).
+#
+# Les Couleurs sont posées à la main d'après les règles d'ENCRE_03 §2, avant
+# tout passage de l'analyseur. Un mot sans piège a une deuxième colonne vide.
+# Format : mot <TAB> Couleurs séparées par des virgules.
+#
+# Six étiquettes ont été corrigées après le premier passage, parce qu'elles
+# étaient fausses et non parce que l'analyseur les contestait : papillon,
+# coquille et feuille portent le ll que §3 compte déjà dans fille ; étoile porte
+# bien un oi ; le r final de hiver, sœur et cœur s'entend.
+chat	Masquées,Muettes
+loup	Masquées,Muettes
+pomme	Jumelles,Muettes
+école	Accentuées,Muettes
+maison	Masquées
+grand	Masquées,Muettes
+jour	Masquées
+fille	Masquées,Jumelles
+garçon	Masquées,Accentuées
+quatre	Masquées,Muettes
+bateau	Masquées
+montagne	Masquées,Muettes
+lapin	Masquées
+très	Accentuées,Muettes
+toujours	Masquées,Muettes
+chambre	Masquées,Muettes
+rouge	Masquées,Muettes
+belle	Jumelles,Muettes
+dans	Masquées,Muettes
+avec	
+pouce	Masquées,Muettes
+roi	Masquées
+noir	Masquées
+voiture	Masquées,Muettes
+pont	Masquées,Muettes
+ombre	Masquées,Muettes
+vent	Masquées,Muettes
+jambe	Masquées,Muettes
+temps	Masquées,Muettes
+main	Masquées
+plein	Masquées
+chemin	Masquées
+riche	Masquées,Muettes
+ligne	Masquées,Muettes
+pharmacie	Masquées,Muettes
+photo	Masquées
+éléphant	Masquées,Accentuées,Muettes
+chapeau	Masquées
+jaune	Masquées,Muettes
+lait	Masquées,Muettes
+neige	Masquées,Muettes
+papillon	Masquées,Jumelles
+soleil	Masquées
+coquille	Masquées,Jumelles
+guitare	Masquées,Muettes
+bague	Masquées,Muettes
+glaçon	Masquées,Accentuées
+reçu	Accentuées
+girafe	Masquées,Muettes
+pigeon	Masquées
+tomber	Masquées,Muettes
+emporter	Masquées,Muettes
+rose	Masquées,Muettes
+tasse	Masquées,Jumelles,Muettes
+poisson	Masquées,Jumelles
+petit	Muettes
+lit	Muettes
+fort	Muettes
+rond	Masquées,Muettes
+chaud	Masquées,Muettes
+gros	Muettes
+bras	Muettes
+dos	Muettes
+porte	Muettes
+table	Muettes
+arbre	Muettes
+deux	Masquées,Muettes
+doux	Masquées,Muettes
+trop	Muettes
+blanc	Masquées,Muettes
+homme	Jumelles,Muettes
+comme	Jumelles,Muettes
+bonne	Jumelles,Muettes
+année	Jumelles,Accentuées,Muettes
+personne	Jumelles,Muettes
+balle	Jumelles,Muettes
+ville	Jumelles,Muettes
+chatte	Masquées,Jumelles,Muettes
+lettre	Jumelles,Muettes
+botte	Jumelles,Muettes
+terre	Jumelles,Muettes
+verre	Jumelles,Muettes
+arriver	Jumelles,Muettes
+apporter	Jumelles,Muettes
+appeler	Jumelles,Muettes
+nappe	Jumelles,Muettes
+classe	Masquées,Jumelles,Muettes
+bébé	Accentuées
+été	Accentuées
+mère	Accentuées,Muettes
+père	Accentuées,Muettes
+forêt	Accentuées,Muettes
+fête	Accentuées,Muettes
+tête	Accentuées,Muettes
+là	Accentuées
+français	Masquées,Accentuées,Muettes
+sous	Masquées,Muettes
+sur	
+jamais	Masquées,Muettes
+aussi	Masquées,Jumelles
+alors	Muettes
+après	Accentuées,Muettes
+avant	Masquées,Muettes
+beaucoup	Masquées,Muettes
+chez	Masquées,Muettes
+mais	Masquées,Muettes
+pour	Masquées
+puis	Muettes
+quand	Masquées,Muettes
+souvent	Masquées,Muettes
+déjà	Accentuées
+encore	Masquées,Muettes
+ici	
+loin	Masquées
+moins	Masquées,Muettes
+vers	Muettes
+chien	Masquées
+cheval	Masquées
+oiseau	Masquées
+souris	Masquées,Muettes
+vache	Masquées,Muettes
+cochon	Masquées
+poule	Masquées,Muettes
+canard	Muettes
+mouton	Masquées
+fleur	Masquées
+feuille	Masquées,Jumelles
+branche	Masquées,Muettes
+jardin	Masquées
+herbe	Muettes
+ciel	
+nuage	Masquées,Muettes
+pluie	Muettes
+lune	Muettes
+étoile	Masquées,Accentuées,Muettes
+matin	Masquées
+soir	Masquées
+nuit	Muettes
+semaine	Masquées,Muettes
+hiver	
+automne	Masquées,Muettes
+printemps	Masquées,Muettes
+papa	
+maman	Masquées
+frère	Accentuées,Muettes
+sœur	Masquées
+ami	
+copain	Masquées
+enfant	Masquées,Muettes
+maître	Masquées,Accentuées,Muettes
+maîtresse	Masquées,Jumelles,Accentuées,Muettes
+cahier	Muettes
+crayon	Masquées
+stylo	
+gomme	Jumelles,Muettes
+règle	Accentuées,Muettes
+livre	Muettes
+page	Masquées,Muettes
+phrase	Masquées,Muettes
+dessin	Masquées,Jumelles
+couleur	Masquées
+vert	Muettes
+bleu	Masquées
+gris	Muettes
+orange	Masquées,Muettes
+marron	Masquées,Jumelles
+manger	Masquées,Muettes
+boire	Masquées,Muettes
+dormir	
+courir	Masquées
+sauter	Masquées,Muettes
+jouer	Masquées,Muettes
+chanter	Masquées,Muettes
+danser	Masquées,Muettes
+parler	Muettes
+écouter	Masquées,Accentuées,Muettes
+regarder	Muettes
+écrire	Accentuées,Muettes
+compter	Masquées,Muettes
+lire	Muettes
+cuisine	Masquées,Muettes
+salon	Masquées
+fenêtre	Accentuées,Muettes
+chaise	Masquées,Muettes
+armoire	Masquées,Muettes
+escalier	Muettes
+rue	Muettes
+village	Masquées,Jumelles,Muettes
+route	Masquées,Muettes
+vélo	Accentuées
+train	Masquées
+avion	Masquées
+pain	Masquées
+fromage	Masquées,Muettes
+gâteau	Masquées,Accentuées
+chocolat	Masquées,Muettes
+bonbon	Masquées
+poire	Masquées,Muettes
+banane	Muettes
+fraise	Masquées,Muettes
+carotte	Jumelles,Muettes
+salade	Muettes
+soupe	Masquées,Muettes
+pied	Muettes
+doigt	Masquées,Muettes
+nez	Muettes
+bouche	Masquées,Muettes
+cheveu	Masquées
+cœur	Masquées
+dent	Masquées,Muettes
+brun	Masquées

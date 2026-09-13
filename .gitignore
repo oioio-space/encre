@@ -1,7 +1,11 @@
 # Build / release
 dist/
-# Root-anchored so it ignores only a top-level `go build` artifact, not cmd/encre/.
+# Root-anchored so they ignore only top-level `go build` artifacts, not cmd/.
+# Deliberately absent: /client and /engine would shadow the source directories
+# of the same name.
 /encre
+/serve
+/lexique-gen
 *.exe
 *.test
 

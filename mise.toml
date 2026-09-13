@@ -111,6 +111,19 @@ description = "Enforce minimum coverage (COVER_MIN); reuses coverage.out from te
 depends = ["test:ci"]
 run = "./scripts/cover.sh --check"
 
+[tasks."lexique:build"]
+description = "Rebuild the embedded French lexicon from Lexique 3.83 (CC BY-SA 4.0)"
+run = """
+set -euo pipefail
+src="${LEXIQUE_TSV:-Lexique383.tsv}"
+if [ ! -f "$src" ]; then
+  echo "Lexique383.tsv introuvable. Télécharge http://www.lexique.org/databases/Lexique383/Lexique383.zip" >&2
+  echo "puis relance avec LEXIQUE_TSV=/chemin/Lexique383.tsv mise run lexique:build" >&2
+  exit 1
+fi
+go run ./cmd/lexique-gen -in "$src" -out lexique/data/lexique.tsv.gz
+"""
+
 [tasks.lint]
 description = "Google Go style-guide gate (gofmt + vet + golangci-lint + build)"
 run = "./scripts/rtkx.sh ./scripts/lint.sh"
