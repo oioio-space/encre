@@ -63,3 +63,45 @@ func TestWindowScaleLeavesRoomForTheWindowChrome(t *testing.T) {
 			scale, 844*scale, monitorH)
 	}
 }
+
+func TestPhysicalPxScalesByWindowRatioThenDeviceScale(t *testing.T) {
+	tests := []struct {
+		name                        string
+		logical, screenLen, outside int
+		deviceScale                 float64
+		want                        float64
+	}{
+		{
+			name:    "screen drawn 1:1 into the window, scale 3",
+			logical: 52, screenLen: 390, outside: 390, deviceScale: 3,
+			want: 156,
+		},
+		{
+			name:    "logical screen squeezed into a narrower window",
+			logical: 52, screenLen: 390, outside: 360, deviceScale: 2,
+			want: 96,
+		},
+		{
+			name:    "desktop window, no device scaling",
+			logical: 52, screenLen: 390, outside: 390, deviceScale: 1,
+			want: 52,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ui.PhysicalPx(tt.logical, tt.screenLen, tt.outside, tt.deviceScale)
+			if got != tt.want {
+				t.Errorf("PhysicalPx(%d, %d, %d, %v) = %v, want %v",
+					tt.logical, tt.screenLen, tt.outside, tt.deviceScale, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPhysicalPxIsZeroWhenTheScreenHasNoWidth(t *testing.T) {
+	// Ebitengine calls Layout before the window exists; a division by zero here
+	// would poison the measurement the prototype exists to report.
+	if got := ui.PhysicalPx(52, 0, 390, 3); got != 0 {
+		t.Errorf("PhysicalPx with screenLen 0 = %v, want 0", got)
+	}
+}

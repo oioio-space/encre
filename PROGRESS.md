@@ -5,11 +5,11 @@
 - v0.0.0 — projet généré depuis go-starter le 2026-09-13 ; squelette + gates verts.
 - Brief de conception dans `brief/` : règles du jeu, charte graphique, contenu
   pédagogique, spec technique, backlog, design.
-- **Prototype T00** : clavier AZERTY dessiné avec sa rangée d'accents, carte,
-  mot qui s'écrit, son de plume. Vérifié dans un vrai navigateur en WASM —
-  « école » tapé à la touche, `é` compris, contexte audio débloqué au premier
-  appui. `client/ui` (géométrie, glyphes, échelle) et `client/game` (saisie)
-  sont testés ; le reste de T00 est la séance sur tablette et téléphone réels.
+- **Prototype T00**, selon ENCRE_06 : thème clair parchemin, 7 colonnes
+  alphabétiques sur téléphone (AZERTY 10 sur ordinateur), rangée d'accents,
+  ourlet de touche, appui long. Vérifié en WASM — « cœur » écrit, le `œ` par
+  appui long sur `o`. `client/ui` et `client/game` sont testés ; le reste de T00
+  est la séance sur tablette et téléphone réels (`encre-1yv.1`).
 - Builds natif **et** `GOOS=js GOARCH=wasm` verts, sans CGO. WASM : 18 Mo bruts,
   **3,2 Mo brotli** — le brief budgète ~10 Mo bruts / ~3 Mo brotli, donc le
   double sur le brut et la cible sur ce qui traverse vraiment le réseau.
@@ -36,4 +36,5 @@ production et le socle du dépôt en P2. Le dépôt ne prime pas sur le jeu.
 | 2026-09-13 | `check-gates-intact` (53 garde-fous) et `cycle-check` (7 signaux) portés de fk, avec leurs tests de morsure. |
 | 2026-09-13 | Remote GitHub public `oioio-space/encre` ; CI verte au premier push ; beads synchronisés (`refs/dolt/data`). |
 | 2026-09-13 | Prototype T00 : clavier dessiné, accents, audio ; `client/ui` + `client/game` testés (35 tests, 96 %). |
+| 2026-09-13 | T00 refait selon ENCRE_06 : thème clair, 7 colonnes alphabétiques, appui long pour `œ û ë â ï ö`. |
 | 2026-09-13 | README réel (ancré sur la simulation d'équilibrage), topics GitHub, licence MIT. |

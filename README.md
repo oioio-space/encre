@@ -59,14 +59,14 @@ le dernier ticket du backlog, pas le premier.
 
 | | État |
 |---|---|
-| Prototype clavier (T00) | ✅ clavier AZERTY dessiné + rangée d'accents, carte, mot qui s'écrit, son de plume. Vérifié dans le navigateur en WASM : « école » tapé à la touche, accent compris |
-| `client/ui` | ✅ géométrie du clavier, cible tactile, échelle entière, contrôle des glyphes — 100 % testé |
-| `client/game` | ✅ le mot en cours de saisie (runes, pas octets) — 100 % testé |
+| Prototype clavier (T00) | ✅ thème clair parchemin, 7 colonnes alphabétiques sur téléphone (AZERTY 10 sur ordinateur), rangée d'accents, ourlet de touche, son de plume. Vérifié en WASM : **cœur** écrit, le `œ` par appui long |
+| Appui long | ✅ `a c e i o u` ouvrent `à â · ç · é è ê ë · î ï · ô ö œ · ù û` — les seuls accès à cœur, œil, flûte, brûle, sûr |
+| `client/ui` | ✅ géométrie du clavier, variantes accentuées, cible tactile, échelle entière, contrôle des glyphes — testé |
+| `client/game` | ✅ le mot en cours de saisie (runes, pas octets) — testé |
 | Build natif + `js/wasm` | ✅ les deux compilent, **sans CGO** |
-| Simulateur d'équilibrage | ✅ tourne, hors build du module (`//go:build ignore`), à porter dans `engine` |
-| Test sur tablette et téléphone réels | ⏳ le reste de T00 : c'est la seule chose qui puisse valider la taille des touches et la latence |
+| Simulateur d'équilibrage | ✅ tourne, hors build du module, à porter dans `engine` |
+| Test sur tablette et téléphone réels | ⏳ le reste de T00 — quatre questions ouvertes déposées en `encre-1yv.1` |
 | `engine`, `lexique`, `content`, `server` | ⛔ spécifiés dans le brief, pas écrits |
-| `encre.go`, `cmd/encre` | ⛔ placeholders du kit de démarrage, à supprimer |
 
 ## Démarrer
 

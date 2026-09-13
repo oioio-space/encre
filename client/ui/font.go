@@ -3,6 +3,7 @@ package ui
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	gotext "github.com/go-text/typesetting/font"
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -12,15 +13,29 @@ import (
 // RequiredRunes returns every character the keyboard of layout l can type, and
 // which the game must therefore be able to draw.
 //
-// ENCRE_02 §5 asks a wider chain of the real fonts than this — it adds ë â û ï
-// ö œ and the capitals É È À Ç Œ. That is the acceptance test of the font
-// itself, a Design deliverable; this is the narrower thing the keyboard needs.
+// This counts the accents reachable only by holding a key (see [Variants]), so
+// it is the whole set the keyboard can ever put on screen. ENCRE_02 §5 asks one
+// thing more of the real fonts — the capitals É È À Ç Œ — which is the
+// acceptance test of the font itself, a Design deliverable.
 func RequiredRunes(l Layout) string {
-	runes := accentRow
-	for _, row := range letterRows[l] {
-		runes += row
+	var b strings.Builder
+	seen := map[rune]bool{}
+	add := func(r rune) {
+		if !seen[r] {
+			seen[r] = true
+			b.WriteRune(r)
+		}
 	}
-	return runes
+	for _, k := range NewKeyboard(l, 390, 334).Keys() {
+		if k.Kind != KeyRune {
+			continue
+		}
+		add(k.Rune)
+		for _, v := range Variants(k.Rune) {
+			add(v)
+		}
+	}
+	return b.String()
 }
 
 // MissingGlyphs reports, in the order they appear, which runes of s the font in

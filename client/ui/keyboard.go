@@ -9,10 +9,17 @@ import "fmt"
 type Layout uint8
 
 const (
-	// AZERTY matches the physical keyboard of the computer, and is the default.
-	AZERTY Layout = iota
-	// ABC is alphabetical, offered in the parent panel for the first weeks.
-	ABC
+	// Phone is seven alphabetical columns over five rows (ENCRE_06 §4).
+	//
+	// ENCRE_06 §2 overrode ENCRE_02 §11 to get here: ten AZERTY columns on a
+	// 390-pixel screen give 39-pixel keys, under the 48 the charter demands of
+	// a touch target, and a seven-year-old misses them. Alphabetical order is
+	// what buys the width back, and at seven it is also the order the child
+	// already knows.
+	Phone Layout = iota
+	// AZERTY is ten columns, for the tablet and the computer, where the width
+	// is there and the arrangement can match the physical keyboard.
+	AZERTY
 )
 
 // KeyKind tells a letter key from the two special ones.
@@ -29,8 +36,8 @@ const (
 
 // Key is one key of the drawn keyboard.
 //
-// X, Y, W and H are the TOUCH area in logical pixels, and they tile the
-// keyboard without gap or overlap. The key drawn inside is inset by a few
+// X, Y, W and H are the TOUCH area in logical pixels, and the keys of a row
+// tile it without gap or overlap. The key drawn inside is inset by a few
 // pixels: at seven the finger lands wide of where the eye aimed, so the target
 // is deliberately larger than the picture of it. Anything sizing a touch target
 // must use these fields, not the drawn rectangle.
@@ -45,26 +52,52 @@ type Key struct {
 func (k Key) Label() string {
 	switch k.Kind {
 	case KeyErase:
-		return "effacer"
+		return "efface"
 	case KeyValidate:
-		return "valider"
+		return "valide"
 	default:
-		return fmt.Sprintf("%c", k.Rune)
+		return string(k.Rune)
 	}
 }
 
-// accentRow stays visible above the letters at all times (ENCRE_02 §11). The
-// apostrophe rides with the accents because French spelling needs it as often.
-const accentRow = "éèêàçùîô-'"
+// AccentRow is the row ENCRE_02 §11 keeps visible above the letters at all
+// times. The apostrophe and the hyphen ride with the accents because written
+// French needs them as often, and neither is reachable any other way.
+const AccentRow = "éèêàçùîô-'"
 
-// columns is the width of every row in key cells. ENCRE_02 §11 fixes three rows
-// of ten across the full width; the last row spends its four spare cells on the
-// two special keys, two each, which is what makes them "grandes, à droite".
-const columns = 10
+// spec is one key before it has been given a place: a character or a special,
+// and how many of the row's cells it spans.
+type spec struct {
+	kind KeyKind
+	r    rune
+	span int
+}
 
-var letterRows = map[Layout][]string{
-	AZERTY: {"azertyuiop", "qsdfghjklm", "wxcvbn"},
-	ABC:    {"abcdefghij", "klmnopqrst", "uvwxyz"},
+func runes(s string) []spec {
+	out := make([]spec, 0, len(s))
+	for _, r := range s {
+		out = append(out, spec{kind: KeyRune, r: r, span: 1})
+	}
+	return out
+}
+
+// rows returns the keyboard row by row. Rows deliberately hold different
+// numbers of keys: the accent row is ten wide while the letter rows are seven,
+// exactly as a physical keyboard staggers its rows. Forcing one grid on both is
+// what put the accents out of reach.
+func rows(l Layout) [][]spec {
+	accents := runes(AccentRow)
+	switch l {
+	case AZERTY:
+		// The specials take two cells each, filling the ten-cell row.
+		last := append(runes("wxcvbn"),
+			spec{kind: KeyErase, span: 2}, spec{kind: KeyValidate, span: 2})
+		return [][]spec{accents, runes("azertyuiop"), runes("qsdfghjklm"), last}
+	default:
+		last := append(runes("vwxyz"),
+			spec{kind: KeyErase, span: 1}, spec{kind: KeyValidate, span: 1})
+		return [][]spec{accents, runes("abcdefg"), runes("hijklmn"), runes("opqrstu"), last}
+	}
 }
 
 // Keyboard is the drawn keyboard for one layout and one keyboard-area size.
@@ -74,43 +107,26 @@ type Keyboard struct {
 }
 
 // NewKeyboard lays the keyboard out inside an area of areaW by areaH logical
-// pixels, whose origin is the keyboard's own top-left corner. The rows are
-// centred in whatever the cell arithmetic leaves over.
+// pixels, whose origin is the keyboard's own top-left corner. Each row divides
+// the width among its own cells, so a row of ten and a row of seven both span
+// the keyboard.
 func NewKeyboard(l Layout, areaW, areaH int) *Keyboard {
-	rows := append([]string{accentRow}, letterRows[l]...)
-
-	cellW := areaW / columns
-	cellH := areaH / len(rows)
-	originX := (areaW - cellW*columns) / 2
-	originY := (areaH - cellH*len(rows)) / 2
+	all := rows(l)
+	rowH := areaH / len(all)
+	originY := (areaH - rowH*len(all)) / 2
 
 	kb := &Keyboard{runes: make(map[rune]bool, 36)}
-	for row, chars := range rows {
-		col := 0
-		for _, r := range chars {
-			kb.add(Key{
-				Kind: KeyRune, Rune: r,
-				X: originX + col*cellW, Y: originY + row*cellH,
-				W: cellW, H: cellH,
-			})
-			col++
+	for row, specs := range all {
+		cells := 0
+		for _, s := range specs {
+			cells += s.span
 		}
-		// The letters of the last row stop short of the full width; the two
-		// special keys take the remaining cells, split evenly.
-		if row == len(rows)-1 && col < columns {
-			spare := columns - col
-			for i, kind := range [2]KeyKind{KeyErase, KeyValidate} {
-				w := spare / 2
-				if i == 1 {
-					w = spare - spare/2 // the odd cell, if any, goes to Valider
-				}
-				kb.add(Key{
-					Kind: kind,
-					X:    originX + col*cellW, Y: originY + row*cellH,
-					W: w * cellW, H: cellH,
-				})
-				col += w
-			}
+		cellW := areaW / cells
+		x := (areaW - cellW*cells) / 2
+		for _, s := range specs {
+			w := cellW * s.span
+			kb.add(Key{Kind: s.kind, Rune: s.r, X: x, Y: originY + row*rowH, W: w, H: rowH})
+			x += w
 		}
 	}
 	return kb
@@ -136,12 +152,24 @@ func (k *Keyboard) KeyAt(x, y int) (Key, bool) {
 	return Key{}, false
 }
 
-// Accepts reports whether r is a character this keyboard can produce.
-func (k *Keyboard) Accepts(r rune) bool { return k.runes[r] }
+// Accepts reports whether r is a character this keyboard can produce, counting
+// the accents reachable by holding a key (see [Variants]).
+func (k *Keyboard) Accepts(r rune) bool {
+	if k.runes[r] {
+		return true
+	}
+	for base := range k.runes {
+		for _, v := range Variants(base) {
+			if v == r {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // MinTouchSide returns the shortest side of the smallest touch area, in logical
-// pixels. Pair it with [PhysicalPx] to check the >= 48 physical pixels that
-// ENCRE_02 §11 requires.
+// pixels — the 48 of ENCRE_02 §11 is a figure in these same units.
 func (k *Keyboard) MinTouchSide() int {
 	side := 0
 	for i, key := range k.keys {
@@ -153,19 +181,5 @@ func (k *Keyboard) MinTouchSide() int {
 	return side
 }
 
-// PhysicalPx converts a length in logical pixels to physical device pixels.
-//
-// Ebitengine stretches the screenLen logical pixels the game draws across the
-// outsideLen device-independent pixels the window occupies, and the device then
-// renders each of those with deviceScale physical pixels. Both steps count: a
-// game that ignores the first measures the phone it was written on rather than
-// the phone it is running on.
-//
-// It returns 0 when screenLen is 0, which is what Ebitengine passes before the
-// window exists.
-func PhysicalPx(logical, screenLen, outsideLen int, deviceScale float64) float64 {
-	if screenLen == 0 {
-		return 0
-	}
-	return float64(logical) * float64(outsideLen) / float64(screenLen) * deviceScale
-}
+// String renders the layout as text, for failure messages.
+func (k *Keyboard) String() string { return fmt.Sprintf("keyboard of %d keys", len(k.keys)) }

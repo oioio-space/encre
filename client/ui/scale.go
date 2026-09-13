@@ -24,3 +24,23 @@ func WindowScale(logicalW, logicalH, monitorW, monitorH int) int {
 	)
 	return max(scale, 1)
 }
+
+// PhysicalPx converts a length in logical pixels to physical device pixels.
+//
+// Ebitengine stretches the screenLen logical pixels the game draws across the
+// outsideLen device-independent pixels the window occupies, and the device then
+// renders each of those with deviceScale physical pixels. Both steps count.
+//
+// This is a reporting figure, not the touch-target test. The 48 pixels of
+// ENCRE_02 §11 are density-independent units, so a key is measured against them
+// in the logical pixels of the 390-wide screen; scaling by the device factor
+// first makes every modern phone pass and measures nothing.
+//
+// It returns 0 when screenLen is 0, which is what Ebitengine passes before the
+// window exists.
+func PhysicalPx(logical, screenLen, outsideLen int, deviceScale float64) float64 {
+	if screenLen == 0 {
+		return 0
+	}
+	return float64(logical) * float64(outsideLen) / float64(screenLen) * deviceScale
+}
