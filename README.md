@@ -67,7 +67,8 @@ le dernier ticket du backlog, pas le premier.
 | `client/game` | ✅ le mot en cours de saisie (runes, pas octets) — testé |
 | Build natif + `js/wasm` | ✅ les deux compilent, **sans CGO** |
 | Simulateur d'équilibrage | ✅ tourne, hors build du module, à porter dans `engine` |
-| Test sur tablette et téléphone réels | ⏳ le reste de T00 — quatre questions ouvertes déposées en `encre-1yv.1` |
+| Étape 0 (T00) | ✅ levée sur profil émulé — 48 px → 165 px phys., latence 32 ms, 10/10 mots accentués, 5,56 s en 4G. La séance sur matériel réel reste à faire au premier mois |
+| Disposition | ✅ balayée sur 16 formats à chaque build : aucune touche hors zone, aucun chevauchement, alphabet complet partout |
 | `lexique`, `content`, `server` | ⛔ spécifiés dans le brief, pas écrits |
 
 ## Démarrer

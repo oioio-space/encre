@@ -42,4 +42,6 @@ production et le socle du dépôt en P2. Le dépôt ne prime pas sur le jeu.
 | 2026-09-13 | Prototype T00 : clavier dessiné, accents, audio ; `client/ui` + `client/game` testés (35 tests, 96 %). |
 | 2026-09-13 | T00 refait selon ENCRE_06 : thème clair, 7 colonnes alphabétiques, appui long pour `œ û ë â ï ö`. |
 | 2026-09-13 | **Epic Moteur terminé** : `engine` complet (T01–T08) + `sim` — 100 enfants × 36 semaines sur le vrai moteur. |
+| 2026-09-13 | **Epic Étape 0 levé** sur mesures émulées (décision de Mathieu) : 48 px → 165 px phys., latence 32 ms, 5,56 s en 4G. |
+| 2026-09-13 | Disposition balayée sur 16 formats à chaque build ; relief des touches selon ENCRE_02 §4 et ENCRE_06 §4. |
 | 2026-09-13 | README réel (ancré sur la simulation d'équilibrage), topics GitHub, licence MIT. |
