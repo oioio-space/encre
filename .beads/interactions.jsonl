@@ -1,0 +1,1 @@
+{"id":"int-7e80399a1260a9b229f25b9d38eaa725","kind":"field_change","created_at":"2026-09-13T19:10:09.584929666Z","actor":"Mathieu Bachmann","issue_id":"encre-bty","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"511bae7 — shims délégants, gate commit-msg (10/10), graphe 8 epics/37 tâches, export JSONL traqué"}}

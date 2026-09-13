@@ -111,6 +111,12 @@ a **substantial** diff; a trivial diff is cleared inline:
   kit. Chaque shim délègue désormais à `.githooks/<nom>` puis exécute le bloc beads ;
   `mise run lint:sh` les passe au shellcheck pour qu'un shim cassé fasse échouer le
   build au lieu de désactiver silencieusement toute la chaîne.
+- **Piège de `bd create --graph`** : une arête `{"from_key":"a","to_key":"b"}` se lit
+  « a **dépend de** b », pas « a bloque b » — l'inverse de la lecture naturelle. Les
+  32 arêtes du backlog sont parties à l'envers la première fois (« Prototype clavier »
+  dépendait de « Écran de run »). Après tout import, vérifier avec `bd dep list <id>`
+  et `bd ready` : les racines seules doivent être prêtes. En direct, `bd dep <bloqueur>
+  --blocks <bloqué>` ne prête pas à confusion.
 - **Pas de TodoWrite ni de TODO en markdown** : le suivi vit dans bd. `PROGRESS.md`
   garde le récit et le journal, pas les tâches.
 
