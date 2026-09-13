@@ -11,18 +11,13 @@
 
 ## Roadmap
 
-- [ ] **Étape 0** (ENCRE_04 §2) — prototype clavier dessiné en WASM, dix mots
-      accentués, sur la tablette *et* le téléphone réels : valide la taille des
-      touches, la latence audio et le chargement avant tout le reste.
-- [ ] Porter `brief/simulation_dictee.go` dans le paquet `engine` (ENCRE_04 §3-4) :
-      pur Go, zéro dépendance, 100 % testé.
-- [ ] Remplacer le placeholder `Greet` / `cmd/encre` par la structure de la spec
-      (`cmd/client`, `cmd/server`, `engine/`, `lexique/`, `content/`).
-- [ ] Remplir la section Architecture de CLAUDE.md, dont la ligne `HOT_PATHS:`
-      une fois la boucle de jeu écrite.
-- [ ] Écrire un vrai README (le gabarit du kit est encore en place).
-- La suite vit dans **bd** : `bd ready` donne le travail débloqué, `bd list -t epic` la
-      carte. `PROGRESS.md` garde le récit et le journal, plus les tâches.
+Les tâches vivent dans **bd**, pas ici : `bd ready` donne le travail débloqué,
+`bd list -t epic` la carte, `bd status` les comptes. Ce fichier garde le récit.
+
+L'ordre est celui du brief, encodé dans les priorités des epics : **Étape 0**
+(le prototype clavier WASM sur tablette et téléphone réels, `encre-gol`) et le
+**moteur** en P0 ; contenu, serveur et client en P1 ; panneau parent, mise en
+production et le socle du dépôt en P2. Le dépôt ne prime pas sur le jeu.
 
 ## Log
 
@@ -35,3 +30,4 @@
 | 2026-09-13 | beads (bd) intégré ; 8 epics / 37 tâches depuis ENCRE_05 ; gate `Bead:` sur chaque commit. |
 | 2026-09-13 | `check-gates-intact` (53 garde-fous) et `cycle-check` (7 signaux) portés de fk, avec leurs tests de morsure. |
 | 2026-09-13 | Remote GitHub public `oioio-space/encre` ; CI verte au premier push ; beads synchronisés (`refs/dolt/data`). |
+| 2026-09-13 | README réel (ancré sur la simulation d'équilibrage), topics GitHub, licence MIT. |

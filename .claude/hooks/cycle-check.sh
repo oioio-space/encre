@@ -215,7 +215,7 @@ try:
         allbeads = json.load(f)
 
     trailer_re = re.compile(r'^\s*Bead:\s*(.+)\$', re.I | re.M)
-    id_re = re.compile(r'^encre-[a-z0-9]{3}(\.[0-9]+)*\$')
+    id_re = re.compile(r'^encre-[a-z0-9]{3,8}(\.[0-9]+)*\$')
 
     cited = {}
     for rec in log.split('\x1e'):

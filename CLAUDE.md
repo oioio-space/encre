@@ -130,7 +130,7 @@ a **substantial** diff; a trivial diff is cleared inline:
     ARBRE EN CONFLIT. Silencieux quand rien n'est dû — c'est ce qui garde sa parole rare
     audible. Lecture manuelle : `mise run cycle:check`.
   - Les deux ont leur test de morsure, dans les deux sens : `mise run gates:test`
-    (12 + 17 + 10 cas). Ils tournent en `ci`.
+    (12 + 17 + 11 cas). Ils tournent en `ci`.
 - **Pas de TodoWrite ni de TODO en markdown** : le suivi vit dans bd. `PROGRESS.md`
   garde le récit et le journal, pas les tâches.
 - **Deux porteurs, un seul maître** : la source de vérité des beads est la base Dolt,

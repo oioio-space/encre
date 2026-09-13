@@ -74,8 +74,11 @@ if [[ ${#ids[@]} -eq 0 ]]; then
 fi
 
 for id in "${ids[@]}"; do
-  if [[ ! "$id" =~ ^encre-[a-z0-9]{3}(\.[0-9]+)*$ ]]; then
-    fail "Commit blocked: '$id' is not a valid bead id (expected encre-xxx, e.g. encre-bty or encre-bty.1)."
+  # bd's hash part is 3 chars today (49 beads here, 260 in fk) but its own docs
+  # show 4 (bd-a1b2) and its init banner 6 (encre-a3f2dd): the length is not a
+  # contract. Accept the format loosely; existence is what `bd show` verifies.
+  if [[ ! "$id" =~ ^encre-[a-z0-9]{3,8}(\.[0-9]+)*$ ]]; then
+    fail "Commit blocked: '$id' is not a valid bead id (expected encre-<hash>, e.g. encre-bty or encre-bty.1)."
   fi
   # bd shells out to an embedded Dolt engine; a hung query must fail the commit
   # loudly rather than hang the terminal or be silently skipped.

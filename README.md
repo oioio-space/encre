@@ -115,14 +115,15 @@ Deux audits gardent les gardes :
 | `mise run cycle:check` | mesure l'état à chaque prompt — hiérarchie des tickets, tickets livrés mais laissés ouverts, arbre en conflit, et si le processus se met à manger le produit. Silencieux quand rien n'est dû. |
 
 Les deux ont leur test de morsure, dans les deux sens : `mise run gates:test`
-(39 cas). Couverture minimale : 85 % (100 % aujourd'hui).
+(40 cas). Couverture minimale : 85 % (100 % aujourd'hui).
 
 </details>
 
 ## Le suivi du travail
 
 Les tâches vivent dans [beads](https://github.com/gastownhall/beads), pas dans
-des TODO en markdown : 8 epics, 40 tickets, avec leurs dépendances.
+des TODO en markdown : 8 epics et leurs tickets, avec leurs dépendances
+(`bd status` pour les comptes du jour).
 
 ```bash
 bd ready            # ce qui est débloqué maintenant
