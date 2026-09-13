@@ -200,6 +200,24 @@ run = "./scripts/clean-artifacts.sh"
 description = "Pre-commit gate: tidy artifacts + block any staged artifact"
 run = "./scripts/clean-artifacts.sh --check"
 
+[tasks."wasm:build"]
+description = "Build the client for the browser into dist/web (ticket T00)"
+# wasm_exec.js is the Go runtime's own shim and must match the toolchain that
+# produced the .wasm, so it is copied from GOROOT at build time, never vendored.
+run = """
+set -euo pipefail
+mkdir -p dist/web
+GOOS=js GOARCH=wasm go build -o dist/web/encre.wasm ./cmd/client
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/web/
+cp web/index.html dist/web/
+printf 'dist/web: %s\n' "$(du -h dist/web/encre.wasm | cut -f1) de wasm"
+"""
+
+[tasks."wasm:serve"]
+description = "Build the client for the browser and serve it on :8080 (phone/tablet test)"
+depends = ["wasm:build"]
+run = "go run ./cmd/serve"
+
 [tasks."hooks:install"]
 description = "Point git at .githooks, or at .beads/hooks when its shims delegate there"
 run = "./scripts/install-hooks.sh"

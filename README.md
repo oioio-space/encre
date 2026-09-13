@@ -59,10 +59,13 @@ le dernier ticket du backlog, pas le premier.
 
 | | État |
 |---|---|
-| `cmd/client` | ✅ ouvre une fenêtre Ebitengine, résolution logique portrait 390×844 / paysage 1280×720 selon l'orientation |
+| Prototype clavier (T00) | ✅ clavier AZERTY dessiné + rangée d'accents, carte, mot qui s'écrit, son de plume. Vérifié dans le navigateur en WASM : « école » tapé à la touche, accent compris |
+| `client/ui` | ✅ géométrie du clavier, cible tactile, échelle entière, contrôle des glyphes — 100 % testé |
+| `client/game` | ✅ le mot en cours de saisie (runes, pas octets) — 100 % testé |
 | Build natif + `js/wasm` | ✅ les deux compilent, **sans CGO** |
 | Simulateur d'équilibrage | ✅ tourne, hors build du module (`//go:build ignore`), à porter dans `engine` |
-| `engine`, `lexique`, `content`, `server`, `client` | ⛔ spécifiés dans le brief, pas écrits |
+| Test sur tablette et téléphone réels | ⏳ le reste de T00 : c'est la seule chose qui puisse valider la taille des touches et la latence |
+| `engine`, `lexique`, `content`, `server` | ⛔ spécifiés dans le brief, pas écrits |
 | `encre.go`, `cmd/encre` | ⛔ placeholders du kit de démarrage, à supprimer |
 
 ## Démarrer
@@ -82,10 +85,11 @@ Ouvrir la fenêtre du client :
 go run ./cmd/client
 ```
 
-Compiler pour le navigateur :
+Ouvrir le prototype sur une tablette ou un téléphone du réseau local — c'est
+pour ça qu'il existe :
 
 ```bash
-GOOS=js GOARCH=wasm go build -o encre.wasm ./cmd/client
+mise run wasm:serve     # compile en WASM et sert sur :8080, adresses affichées
 ```
 
 Ebitengine v2.10 est pure Go sur desktop Linux, macOS et Windows : ni

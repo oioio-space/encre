@@ -18,6 +18,8 @@ bench-*.txt
 .env.*
 mise.local.toml
 .idea/
+# Traces de session des outils de navigateur (captures, logs de console).
+.playwright-mcp/
 .DS_Store
 
 # Beads / Dolt files (added by bd init)

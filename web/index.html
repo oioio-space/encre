@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0B0A14">
+<title>ENCRE — prototype clavier</title>
+<style>
+  /* Palette ENCRE_02 §3. Ni blanc ni noir purs. */
+  html, body { margin: 0; height: 100%; background: #0B0A14; overflow: hidden;
+               /* Le tap ne doit ni zoomer ni sélectionner : le jeu gère ses propres appuis. */
+               -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+               touch-action: none; }
+  canvas { display: block; }
+  #chargement { position: fixed; inset: 0; display: grid; place-items: center;
+                font: 14px system-ui, sans-serif; color: #55558A; }
+  /* La goutte du logo pendant le premier chargement (ENCRE_04 §2). */
+  #goutte { width: 22px; height: 28px; background: #3A3866; margin: 0 auto 14px;
+            border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+            clip-path: polygon(50% 0%, 100% 62%, 78% 100%, 22% 100%, 0% 62%);
+            animation: tomber 1.4s ease-in-out infinite; }
+  @keyframes tomber { 0%,100% { transform: translateY(-3px); opacity: .55 }
+                      50%     { transform: translateY(3px);  opacity: 1 } }
+</style>
+</head>
+<body>
+<div id="chargement"><div><div id="goutte"></div><div id="etat">chargement…</div></div></div>
+<script src="wasm_exec.js"></script>
+<script>
+(async () => {
+  const etat = document.getElementById("etat");
+  const debut = performance.now();
+  const go = new Go();
+  try {
+    // instantiateStreaming needs the server to send application/wasm; cmd/serve does.
+    const { instance } = await WebAssembly.instantiateStreaming(fetch("encre.wasm"), go.importObject);
+    etat.textContent = `chargé en ${((performance.now() - debut) / 1000).toFixed(1)} s`;
+    document.getElementById("chargement").remove();
+    go.run(instance);
+  } catch (err) {
+    etat.textContent = "échec : " + err;
+  }
+})();
+</script>
+</body>
+</html>
