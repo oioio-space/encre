@@ -404,12 +404,31 @@ type Juice struct {
 	BossLastLetterSlowFactor   float64 `json:"boss_last_letter_slow_factor,omitzero"`
 	BossLastLetterSlowDuration Millis  `json:"boss_last_letter_slow_duration_ms,omitzero"`
 
+	// BrouillonShowDuration is how long Le Brouillon shows the word before
+	// wiping it (brief/ENCRE_01 §13: "le mot apparaît 1 seconde puis
+	// disparaît"). Neither ENCRE_02 §12 nor ENCRE_06 §6 carries it — it is not
+	// one of their `@keyframes` — but it is exactly the kind of number this
+	// package exists to hold rather than let a scene hardcode.
+	BrouillonShowDuration Millis `json:"brouillon_show_duration_ms,omitzero"`
+
 	// CardIdle is `flotte` (ENCRE_06 §6): a resting card's drift, corrected to
 	// 3.4 s at 3 px amplitude, superseding ENCRE_02 §12's 2 px over 2 s.
 	// Desynchronised card to card is a per-card phase offset, not a value
 	// carried here.
 	CardIdle          Anim    `json:"flotte"`
 	CardIdleAmplitude float64 `json:"card_idle_amplitude,omitzero"`
+
+	// CardFlip is the Rencontre's retournement (brief/ENCRE_06 §5): 300 ms,
+	// scaleX from 1 to CardFlipMinScaleX and back, symmetric about the
+	// midpoint. CardFlipEdgeColor is the `#6E5738` slab the card's own edge
+	// shows while it is thin, roughly at that midpoint — the parchment's
+	// underside, not the verso's own colour.
+	CardFlip          Anim    `json:"retournement"`
+	CardFlipMinScaleX float64 `json:"retournement_min_scale_x,omitzero"`
+	// CardFlipEdgeColor is a "#RRGGBB" string rather than a colour type: this
+	// package draws nothing, and a colour type would need one just to parse
+	// this one field back out.
+	CardFlipEdgeColor string `json:"retournement_edge_color,omitzero"`
 
 	// Bave is what appears with — the ink mask spreading to fill it — and
 	// Sechage is what leaves with, fading to Parchemin. ENCRE_06 §6 corrects
@@ -478,8 +497,14 @@ func DefaultJuice() Juice {
 		BossLastLetterSlowFactor:   0.5,
 		BossLastLetterSlowDuration: 400,
 
+		BrouillonShowDuration: 1000,
+
 		CardIdle:          Anim{Duration: 3400, Curve: NamedCurve(CurveEaseInOut)},
 		CardIdleAmplitude: 3,
+
+		CardFlip:          Anim{Duration: 300, Curve: NamedCurve(CurveEaseInOut)},
+		CardFlipMinScaleX: 0.06,
+		CardFlipEdgeColor: "#6E5738",
 
 		Bave:    Anim{Duration: 120, Curve: NamedCurve(CurveEaseOut)},
 		Sechage: Anim{Duration: 200, Curve: NamedCurve(CurveEaseIn)},

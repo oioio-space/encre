@@ -23,8 +23,14 @@
   "boss_last_letter_slow_factor": 0.5,
   "boss_last_letter_slow_duration_ms": 400,
 
+  "brouillon_show_duration_ms": 1000,
+
   "flotte": { "duration_ms": 3400, "curve": "ease-in-out" },
   "card_idle_amplitude": 3,
+
+  "retournement": { "duration_ms": 300, "curve": "ease-in-out" },
+  "retournement_min_scale_x": 0.06,
+  "retournement_edge_color": "#6E5738",
 
   "bave": { "duration_ms": 120, "curve": "ease-out" },
   "sechage": { "duration_ms": 200, "curve": "ease-in" },
