@@ -11,7 +11,7 @@ const (
 	Chronometre                      // +4 mult when the answer came fast
 	Jumeau                           // +2 mult per Jumelle trap
 	Loupe                            // doubles the chips of the Jumelles
-	Gomme                            // one second chance per run — see Replay, not here
+	Gomme                            // forgives the first fault of a manche — see Replay, not here
 	Collectionneur                   // +1 mult per gold word already played this run
 	Aimant                           // half again on a gold word
 	Sourd                            // +1 to the blind multiplier

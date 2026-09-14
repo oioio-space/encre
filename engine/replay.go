@@ -98,13 +98,27 @@ func Replay(run Run, states map[string]*WordState, cfg Config) (Outcome, error) 
 		return st
 	}
 
+	// The combo lives outside the manche loop: ENCRE_01 §6 has it carry from
+	// one manche into the next, so the boss is naturally played at a high
+	// multiplier rather than starting back at one.
+	combo := 1.0
 	for manche := range manches {
-		combo := 1.0
-		// A Revanche replays the manche with one more multiplier on everything.
+		boss := NoBoss
+		if manche == manches-1 {
+			boss = bossOf(run.Deck.Boss)
+		}
+		// A Revanche adds one more multiplier to every word of the manche it
+		// replays, without permanently raising the combo the rest of the run
+		// carries (ENCRE_01 §10).
+		revancheBonus := 0.0
 		if run.Revanche[manche] {
-			combo++
+			revancheBonus = 1.0
 		}
 		goldPlayed := 0
+		// The Gomme forgives exactly one fault per manche (ENCRE_01 §12): the
+		// word still scores nothing, but the combo it would otherwise break
+		// survives untouched.
+		gommeSpent := false
 
 		for _, a := range run.Attempts {
 			if a.Manche < 0 || a.Manche >= manches {
@@ -118,14 +132,20 @@ func Replay(run Run, states map[string]*WordState, cfg Config) (Outcome, error) 
 				return Outcome{}, fmt.Errorf("engine: attempt on word %q, which is not in the deck", a.WordID)
 			}
 			st := state(a.WordID)
-			ctx := Ctx{Levels: run.Levels, Boss: NoBoss, GoldPlayed: goldPlayed}
+			fast := a.Millis > 0 && float64(a.Millis) <= cfg.ChronoSeconds*1000
+			ctx := Ctx{Levels: run.Levels, Boss: boss, GoldPlayed: goldPlayed, Fast: fast}
 			if st.Gold {
 				goldPlayed++
 			}
-			chips, mult := Score(a, w, st, owned, combo, ctx, cfg)
+			chips, mult := Score(a, w, st, owned, combo+revancheBonus, ctx, cfg)
 			out.Scores[manche] += chips * mult
-			if a.Correct && !a.Copy {
+			switch {
+			case a.Correct && !a.Copy:
 				combo++
+			case !a.Correct && owned[Gomme] && !gommeSpent:
+				gommeSpent = true
+			case !a.Correct:
+				combo = 1
 			}
 		}
 

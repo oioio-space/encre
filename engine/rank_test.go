@@ -197,3 +197,19 @@ func TestALevelStopsAtTen(t *testing.T) {
 		t.Errorf("level = %d, want it capped at %d", got, cfg.LevelMax)
 	}
 }
+
+// TestAdvanceWeekMovesTheCounterTheRankUpNeeds is the bug encre-00q.1 found:
+// WeeksAtRank was never incremented anywhere production runs, so a hundred
+// children out of a hundred stayed Blanc for 36 simulated weeks. The caller —
+// today sim, eventually the server's weekly job — has to move it once a week;
+// this is the one exported way to do that.
+func TestAdvanceWeekMovesTheCounterTheRankUpNeeds(t *testing.T) {
+	c := newChild()
+	c.WeeksAtRank = 2
+
+	c.AdvanceWeek()
+
+	if c.WeeksAtRank != 3 {
+		t.Errorf("WeeksAtRank = %d, want 3", c.WeeksAtRank)
+	}
+}

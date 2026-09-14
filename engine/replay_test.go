@@ -277,3 +277,161 @@ func TestARunLostEarlyLowersTheTargetsOfTheNext(t *testing.T) {
 		t.Errorf("Kindness = %v after a run lost in the first manche, want it lowered", c.Kindness)
 	}
 }
+
+// TestReplayPlaysTheWeekSBossOnlyOnTheThirdManche is encre-00q.1: Replay used
+// to hard-code Boss: NoBoss for every manche, so the Voleur d'accents never
+// touched a score. The boss belongs to the third manche only (ENCRE_01 §3);
+// an accented word in the first two must still pay in full.
+func TestReplayPlaysTheWeekSBossOnlyOnTheThirdManche(t *testing.T) {
+	cfg := engine.DefaultConfig()
+	accented := engine.Word{
+		ID: "école", Text: "école", Letters: 5,
+		Traps: map[engine.Color]int{engine.Accentuees: 1},
+	}
+	run := engine.Run{
+		ID:      "r1",
+		Deck:    engine.Deck{Week: []engine.Word{accented}, Seed: 7, Boss: "Voleur d'accents"},
+		Targets: [3]float64{0, 0, 0},
+		Levels:  map[engine.Color]int{engine.Accentuees: 2},
+		Attempts: []engine.Attempt{
+			{WordID: "école", Manche: 0, Correct: true},
+			{WordID: "école", Manche: 2, Correct: true},
+		},
+	}
+
+	out, err := engine.Replay(run, nil, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	if out.Scores[0] <= out.Scores[2] {
+		t.Errorf("manche 1 scored %v and the boss manche %v, want the boss manche lower — "+
+			"the Voleur d'accents takes the Accentuées to nothing there", out.Scores[0], out.Scores[2])
+	}
+}
+
+// TestTheChronometreRewardsAnAnswerInsideItsWindow is encre-00q.1: Score reads
+// Ctx.Fast, but Replay never derived it from Attempt.Millis, so the
+// Chronomètre never paid.
+func TestTheChronometreRewardsAnAnswerInsideItsWindow(t *testing.T) {
+	cfg := engine.DefaultConfig()
+	run := engine.Run{
+		ID:        "r1",
+		Deck:      engine.Deck{Week: words("mot"), Seed: 7},
+		Targets:   [3]float64{0, 0, 0},
+		Talismans: []engine.TalismanID{engine.Chronometre},
+		Attempts: []engine.Attempt{
+			{WordID: "mot", Manche: 0, Correct: true, Millis: int(cfg.ChronoSeconds*1000) - 1},
+		},
+	}
+	slow := run
+	slow.Attempts = []engine.Attempt{
+		{WordID: "mot", Manche: 0, Correct: true, Millis: int(cfg.ChronoSeconds*1000) + 1000},
+	}
+
+	fast, err := engine.Replay(run, nil, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	slowOut, err := engine.Replay(slow, nil, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	if fast.Scores[0] <= slowOut.Scores[0] {
+		t.Errorf("fast answer scored %v, slow one %v, want the fast one higher — the Chronomètre pays speed",
+			fast.Scores[0], slowOut.Scores[0])
+	}
+}
+
+// TestAWrongAnswerRetombeTheComboToOne is ENCRE_01 §6: a fault resets the
+// combo to one. Replay never did this at all until encre-00q.1.
+func TestAWrongAnswerRetombeTheComboToOne(t *testing.T) {
+	cfg := engine.DefaultConfig()
+	run := runOf([3]float64{0, 0, 0},
+		answer(0, true), answer(0, false), answer(0, true))
+
+	out, err := engine.Replay(run, nil, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	// "mot" is three letters: the first word scores at combo 1 (3), the
+	// second is wrong (0), the third is back at combo 1 too (3) — not 3 as it
+	// would be at a combo of two-then-broken. Total: 3 + 0 + 3 = 6.
+	if want := 6.0; out.Scores[0] != want {
+		t.Errorf("manche score = %v, want %v — the fault must reset the combo", out.Scores[0], want)
+	}
+}
+
+// TestTheGommeForgivesTheFirstFaultOfAManche is ENCRE_01 §12: "une faute
+// pardonnée par manche". The first wrong answer of a manche, with the Gomme
+// carried, leaves the combo untouched — the word itself still scores zero.
+func TestTheGommeForgivesTheFirstFaultOfAManche(t *testing.T) {
+	cfg := engine.DefaultConfig()
+	run := engine.Run{
+		ID:        "r1",
+		Deck:      engine.Deck{Week: words("mot"), Seed: 7},
+		Targets:   [3]float64{0, 0, 0},
+		Talismans: []engine.TalismanID{engine.Gomme},
+		Attempts: []engine.Attempt{
+			{WordID: "mot", Manche: 0, Correct: true},
+			{WordID: "mot", Manche: 0, Correct: false},
+			{WordID: "mot", Manche: 0, Correct: true},
+		},
+	}
+
+	out, err := engine.Replay(run, nil, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	// Combo 1, then the fault forgiven — the combo holds at 2 rather than
+	// falling back to 1 — then a third word played at that same combo of 2:
+	// 3 + 0 + 6 = 9, against 6 without the Gomme (a reset to 1 either side).
+	if want := 9.0; out.Scores[0] != want {
+		t.Errorf("manche score with the Gomme = %v, want %v", out.Scores[0], want)
+	}
+}
+
+// TestTheGommeOnlyForgivesOneFaultPerManche checks the second fault of the
+// same manche still breaks the combo even with the Gomme carried.
+func TestTheGommeOnlyForgivesOneFaultPerManche(t *testing.T) {
+	cfg := engine.DefaultConfig()
+	run := engine.Run{
+		ID:        "r1",
+		Deck:      engine.Deck{Week: words("mot"), Seed: 7},
+		Targets:   [3]float64{0, 0, 0},
+		Talismans: []engine.TalismanID{engine.Gomme},
+		Attempts: []engine.Attempt{
+			{WordID: "mot", Manche: 0, Correct: false},
+			{WordID: "mot", Manche: 0, Correct: false},
+			{WordID: "mot", Manche: 0, Correct: true},
+		},
+	}
+
+	out, err := engine.Replay(run, nil, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	// First fault forgiven (combo stays 1), second fault is not (combo resets
+	// to 1 again), third word scores at combo 1: 0 + 0 + 3 = 3.
+	if want := 3.0; out.Scores[0] != want {
+		t.Errorf("manche score = %v, want %v", out.Scores[0], want)
+	}
+}
+
+// TestTheComboPersistsBetweenManches is ENCRE_01 §6: the combo carries from
+// one manche into the next, so the boss is naturally played at a high
+// multiplier. Replay used to reset it to one at the top of every manche.
+func TestTheComboPersistsBetweenManches(t *testing.T) {
+	cfg := engine.DefaultConfig()
+	run := runOf([3]float64{0, 0, 0}, answer(0, true), answer(1, true))
+
+	out, err := engine.Replay(run, nil, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+	// Manche 0 plays at combo 1 (3 chips), manche 1 opens at combo 2 (6 chips)
+	// rather than resetting to combo 1 (which would also score 3).
+	if out.Scores[1] <= out.Scores[0] {
+		t.Errorf("manche 0 scored %v, manche 1 scored %v, want manche 1 higher — the combo carries over",
+			out.Scores[0], out.Scores[1])
+	}
+}

@@ -10,6 +10,17 @@ const (
 // maxRank is Diamant, the sixth and last (ENCRE_01).
 const maxRank = 5
 
+// AdvanceWeek moves the child one week further under their current rank.
+//
+// It exists because WeeksAtRank has no other honest way to move: Apply runs
+// once per finished run, and a session plays several, so incrementing it
+// there would count a good evening as several weeks. The caller — today
+// [sim.Run], eventually the server's weekly job — calls this exactly once per
+// child per week, whether or not they played at all.
+func (c *Child) AdvanceWeek() {
+	c.WeeksAtRank++
+}
+
 // WinBoss records a boss beaten in the given week and returns what changed.
 //
 // A rank asks for two things at once: enough wins AND enough weeks under the
