@@ -147,7 +147,7 @@ func (l *Lexicon) Analyze(word string) Analysis {
 	if rule, ok := sosies[w]; ok {
 		a.Hits = append(a.Hits, Hit{Rule: rule, Color: engine.Sosies, At: 0, Len: len(runes)})
 	}
-	a.Hits = append(a.Hits, silentTail(w, entry.Phon, covered)...)
+	a.Hits = append(a.Hits, l.silentTail(w, entry.Phon, covered)...)
 
 	a.Traps = countTraps(a.Hits)
 

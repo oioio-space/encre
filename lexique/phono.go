@@ -62,7 +62,7 @@ const maxSilentTail = 3
 // is not a silent letter: the l of fille belongs to ill, the n of pont to the
 // nasal, the h of blanche to ch. Reaching one ends the walk, because whatever
 // lies further in is being pronounced.
-func silentTail(word, phon string, covered []bool) []Hit {
+func (l *Lexicon) silentTail(word, phon string, covered []bool) []Hit {
 	if phon == "" {
 		return nil
 	}
@@ -79,8 +79,15 @@ func silentTail(word, phon string, covered []bool) []Hit {
 	var hits []Hit
 	for i := len(letters) - 1; i > 0 && len(hits) < maxSilentTail; i-- {
 		r := letters[i]
-		if covered[i] || soundsLike(r, phon) {
-			break
+		// Ask the lexicon before asking the sound. The s of roses looks heard —
+		// /Roz/ does end on a z an s can write — but that z belongs to the s in
+		// the middle, already spoken for. rose and roses are said the same, so
+		// the final s adds nothing and is silent. When the shorter form is
+		// unknown the sound is still the best question available.
+		if !l.addsNoSound(string(letters[:i]), phon) {
+			if covered[i] || soundsLike(r, phon) {
+				break
+			}
 		}
 		if isVowel(r) && r != 'e' {
 			break // the final vowel is always said
@@ -100,6 +107,14 @@ func silentTail(word, phon string, covered []bool) []Hit {
 		hits = append(hits, Hit{Rule: rule, Color: engine.Muettes, At: i, Len: 1})
 	}
 	return hits
+}
+
+// addsNoSound reports whether the lexicon knows the word without its last
+// letter and pronounces it exactly the same, which settles the letter as silent
+// without any guessing.
+func (l *Lexicon) addsNoSound(shorter, phon string) bool {
+	e, ok := l.words[shorter]
+	return ok && e.Phon == phon
 }
 
 // soundsLike reports whether the pronunciation ends on a phoneme this letter

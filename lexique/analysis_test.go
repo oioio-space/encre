@@ -150,3 +150,41 @@ func TestAttributionTravelsWithTheData(t *testing.T) {
 		t.Errorf("Attribution = %q, want the source and the licence", lexique.Attribution)
 	}
 }
+
+// TestAPluralSDoesNotStealTheSoundOfAnEarlierS is the bug the CLI showed on
+// « roses ». The walk asked the pronunciation whether the final letter was
+// heard, and /Roz/ does end on a z that an s can write — but that z belongs to
+// the s in the middle of the word, which was already spoken for.
+//
+// The lexicon settles it without guessing: rose and roses are pronounced the
+// same, so the s adds nothing and is silent. When the shorter form is unknown
+// the old question is still the best one available.
+func TestAPluralSDoesNotStealTheSoundOfAnEarlierS(t *testing.T) {
+	t.Parallel()
+
+	lex := lexique.Embedded()
+	cases := []struct {
+		word string
+		want engine.Rule
+		has  bool
+	}{
+		{word: "roses", want: lexique.RuleSMuet, has: true},
+		{word: "chats", want: lexique.RuleSMuet, has: true},
+		{word: "chemises", want: lexique.RuleSMuet, has: true},
+		// sud really does say its d: removing it leaves a different sound.
+		{word: "sud", want: lexique.RuleDMuet, has: false},
+		// The e of porte is silent even though port is a different word.
+		{word: "porte", want: lexique.RuleEMuet, has: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.word, func(t *testing.T) {
+			t.Parallel()
+			rules := lex.Analyze(tc.word).Rules()
+			if got := slices.Contains(rules, tc.want); got != tc.has {
+				t.Errorf("Analyze(%q) carries %q = %v, want %v (rules %v)",
+					tc.word, tc.want, got, tc.has, rules)
+			}
+		})
+	}
+}
