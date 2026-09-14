@@ -99,14 +99,22 @@ func TestKeyAtFindsTheKeyUnderItsOwnCentre(t *testing.T) {
 	}
 }
 
+// TestKeyAtReportsNothingOutsideTheKeyboard draws the line the forgiveness of
+// reachMargin stops at. A tap just past an edge is a miss to be caught — the
+// keys cannot be made bigger, so the misses are met halfway instead. A tap on
+// the other side of the screen is somebody pressing the card, and must not put
+// a letter on the page.
 func TestKeyAtReportsNothingOutsideTheKeyboard(t *testing.T) {
 	kb := ui.NewKeyboard(ui.Phone, phoneW, boardH)
 
-	if _, ok := kb.KeyAt(-1, 10); ok {
-		t.Error("KeyAt(-1, 10) found a key left of the keyboard")
+	if _, ok := kb.KeyAt(-1, 10); !ok {
+		t.Error("KeyAt(-1, 10) found nothing one pixel past the left edge, want the nearest key")
 	}
-	if _, ok := kb.KeyAt(10, boardH+1); ok {
-		t.Error("KeyAt below the keyboard found a key")
+	if _, ok := kb.KeyAt(-200, 10); ok {
+		t.Error("KeyAt(-200, 10) found a key far left of the keyboard")
+	}
+	if _, ok := kb.KeyAt(10, boardH+200); ok {
+		t.Error("KeyAt far below the keyboard found a key")
 	}
 }
 

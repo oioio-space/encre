@@ -155,14 +155,44 @@ func (k *Keyboard) add(key Key) {
 // Keys returns every key, in reading order.
 func (k *Keyboard) Keys() []Key { return k.keys }
 
-// KeyAt returns the key whose touch area contains the logical point (x, y).
+// reachMargin is how far outside its drawn edge a key still answers, in logical
+// pixels — about a quarter of a key.
+//
+// Seven columns on a 390 pt screen cap a key at roughly 9 mm however the
+// padding is spent, and a seven-year-old misses a 9 mm target about one tap in
+// six (Anthony et al., "Physical dimensions of children's touchscreen
+// interactions", IJHCS 2019, 116 children and 55 000 taps). The same work names
+// the space *between* targets, rather than their size, as what sends a tap to
+// the neighbour. The keys cannot grow, so the gaps stop being holes instead:
+// what is drawn keeps its size, and what answers is the nearest key.
+const reachMargin = 12
+
+// KeyAt returns the key the logical point (x, y) asks for.
+//
+// A point inside a key always returns that key: what is under the finger wins
+// over what is near it, so the drawing never lies. Outside every key, the
+// nearest one answers if the miss is within reachMargin, and nothing answers
+// beyond that — a tap on the card is not a tap on the keyboard.
 func (k *Keyboard) KeyAt(x, y int) (Key, bool) {
+	best, bestDist := Key{}, reachMargin*reachMargin+1
 	for _, key := range k.keys {
-		if x >= key.X && x < key.X+key.W && y >= key.Y && y < key.Y+key.H {
+		d := key.distanceTo(x, y)
+		if d == 0 {
 			return key, true
 		}
+		if d < bestDist {
+			best, bestDist = key, d
+		}
 	}
-	return Key{}, false
+	return best, bestDist <= reachMargin*reachMargin
+}
+
+// distanceTo is how far the point lies outside the key's drawn rectangle,
+// squared so the comparison stays in integers. Zero means inside.
+func (k Key) distanceTo(x, y int) int {
+	dx := max(k.X-x, 0, x-(k.X+k.W-1))
+	dy := max(k.Y-y, 0, y-(k.Y+k.H-1))
+	return dx*dx + dy*dy
 }
 
 // Accepts reports whether r is a character this keyboard can produce, counting

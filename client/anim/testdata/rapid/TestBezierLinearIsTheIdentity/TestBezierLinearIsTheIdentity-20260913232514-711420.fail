@@ -1,0 +1,11 @@
+# 2026/09/13 23:25:14.693278 [TestBezierLinearIsTheIdentity] [rapid] draw t: 0.5625
+# 2026/09/13 23:25:14.693300 [TestBezierLinearIsTheIdentity] linear.Y(0.5625) = 0.5624999976398465, want 0.5625
+# 
+v0.4.8#9343440425380462481
+0x0
+0x0
+0x0
+0x1
+0x0
+0x3
+0x2000000000000

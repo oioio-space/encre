@@ -30,6 +30,7 @@ import (
 	text "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
+	"github.com/oioio-space/encre/client/anim"
 	"github.com/oioio-space/encre/client/assets"
 	"github.com/oioio-space/encre/client/game"
 	"github.com/oioio-space/encre/client/ui"
@@ -91,6 +92,16 @@ type client struct {
 	entry *game.Entry
 	face  *text.GoXFace
 
+	// juice is the timings of brief/ENCRE_02 §12, loaded once at startup and
+	// handed to the game.Game this scene runs under (see main). This
+	// prototype does not yet animate anything they govern, but main.go wires
+	// them through the same game.Game every later scene will read them from.
+	juice anim.Juice
+
+	// screen is the layout of the current frame, computed by Layout and
+	// handed to Draw by the game.Stage that runs this scene.
+	screen ui.Screen
+
 	plume *audio.Player
 	// audioUnlocked records the browser's one-gesture rule: the audio context
 	// does not start until the player has touched something (ENCRE_04 §2).
@@ -122,15 +133,22 @@ type client struct {
 }
 
 func newClient() (*client, error) {
-	// La Plume and Le Greffe are Design deliverables (ENCRE_02 §16) that do not
-	// exist yet. bitmapfont stands in: a real pixel font that — checked here
-	// rather than assumed — already carries every accent the charter asks for.
+	// La Plume, Le Greffe and La Cursive are the real fonts ticket encre-amh
+	// chose (ENCRE_02 §5), checked here against every rune the drawn keyboard
+	// can produce rather than assumed. The scene still draws through the
+	// bitmap placeholder below (c.face): wiring this registry's faces into
+	// Draw is a later ticket's redraw, not this one's.
 	required := ui.RequiredRunes(ui.Phone) + ui.RequiredRunes(ui.AZERTY) + "…·×→"
-	if missing := ui.MissingGlyphsInFace(bitmapfont.Face, required); len(missing) > 0 {
-		return nil, fmt.Errorf("the font cannot draw %d required rune(s): %q", len(missing), string(missing))
+	if _, err := ui.NewDefaultRegistry(required); err != nil {
+		return nil, fmt.Errorf("loading fonts: %w", err)
 	}
 
-	c := &client{face: text.NewGoXFace(bitmapfont.Face)}
+	juice, err := anim.LoadJuice(assets.JuiceJSON)
+	if err != nil {
+		return nil, fmt.Errorf("loading juice.json: %w", err)
+	}
+
+	c := &client{face: text.NewGoXFace(bitmapfont.Face), juice: juice}
 
 	ctx := audio.NewContext(48000)
 	stream, err := vorbis.DecodeF32(bytes.NewReader(assets.PlumeOgg))
@@ -149,6 +167,7 @@ func newClient() (*client, error) {
 func (c *client) Layout(outsideWidth, outsideHeight int) (int, int) {
 	c.outsideW = outsideWidth
 	s := ui.NewScreen(outsideWidth, outsideHeight)
+	c.screen = s
 	c.screenW, c.screenH = s.W, s.H
 	c.cardX, c.cardY = s.CardX, s.CardY
 	c.cardW, c.cardH, c.entryY = s.CardW, s.CardH, s.EntryY
@@ -167,7 +186,10 @@ func (c *client) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return c.screenW, c.screenH
 }
 
-func (c *client) Update() error {
+// Update implements game.Scene. g is unused: this single-scene prototype
+// never transitions and reads nothing from g.Juice yet, but the signature is
+// what every later scene will share.
+func (c *client) Update(_ *game.Game) error {
 	if c.echoTicks > 0 {
 		c.echoTicks--
 	}
@@ -310,13 +332,16 @@ func (c *client) playPlume() {
 	c.plume.Play()
 }
 
-func (c *client) Draw(screen *ebiten.Image) {
-	screen.Fill(parchemin)
-	c.drawDiagnostics(screen)
-	c.drawCard(screen)
-	c.drawEntry(screen)
-	c.drawKeyboard(screen)
-	c.drawOpenVariants(screen)
+// Draw implements game.Scene. screen is unused: this prototype still lays out
+// from the fields Layout copied out of it, not to change a pixel of what T00
+// validated.
+func (c *client) Draw(dst *ebiten.Image, _ ui.Screen) {
+	dst.Fill(parchemin)
+	c.drawDiagnostics(dst)
+	c.drawCard(dst)
+	c.drawEntry(dst)
+	c.drawKeyboard(dst)
+	c.drawOpenVariants(dst)
 }
 
 // drawText draws s centred on (cx, cy), enlarged by the whole factor scale. The
@@ -570,7 +595,26 @@ func main() {
 	scale := ui.WindowScale(ui.LandscapeWidth, ui.LandscapeHeight, mw, mh)
 	ebiten.SetWindowSize(ui.LandscapeWidth*scale, ui.LandscapeHeight*scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	if err := ebiten.RunGame(c); err != nil {
+
+	// A single scene for now, the run screen of the T00 prototype, registered
+	// under game.Run: the scene graph of T23 exists so later tickets add
+	// scenes here rather than growing client into one, but this one does not
+	// yet transition anywhere.
+	g := game.NewGame(game.Run, c.juice)
+	stage := game.NewStage(g, map[game.SceneID]game.Scene{game.Run: c})
+	if err := ebiten.RunGame(&runner{client: c, stage: stage}); err != nil {
 		log.Fatal(err)
 	}
 }
+
+// runner adapts a game.Stage to the ebiten.Game interface: Layout is promoted
+// straight from client, since the stage does not change how the window is
+// laid out, only what draws inside it.
+type runner struct {
+	*client
+	stage *game.Stage
+}
+
+func (r *runner) Update() error { return r.stage.Update() }
+
+func (r *runner) Draw(dst *ebiten.Image) { r.stage.Draw(dst, r.screen) }

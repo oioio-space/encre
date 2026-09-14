@@ -1,0 +1,46 @@
+{
+  "hitstop_trap_ms": 80,
+  "hitstop_legendary_ms": 150,
+
+  "squash_scale": 0.85,
+  "squash_duration_ms": 60,
+  "rebound_scale": 1.08,
+  "return_duration_ms": 180,
+
+  "shake_amplitude": 2,
+  "shake_max_amplitude": 12,
+  "tremble": { "duration_ms": 500, "curve": "ease-out" },
+
+  "jetons": { "duration_ms": 1800, "curve": "ease-in" },
+  "jetons_stagger_ms": 100,
+  "droplet_per_tokens": 10,
+
+  "counter_min_duration_ms": 300,
+  "counter_max_duration_ms": 3000,
+  "compteur": { "duration_ms": 1800, "curve": "ease-out" },
+  "counter_arrival_scale": 1.18,
+
+  "boss_last_letter_slow_factor": 0.5,
+  "boss_last_letter_slow_duration_ms": 400,
+
+  "flotte": { "duration_ms": 3400, "curve": "ease-in-out" },
+  "card_idle_amplitude": 3,
+
+  "bave": { "duration_ms": 120, "curve": "ease-out" },
+  "sechage": { "duration_ms": 200, "curve": "ease-in" },
+
+  "enluminure_duration_ms": 6000,
+
+  "respire": { "duration_ms": 3200, "curve": "ease-in-out" },
+  "cligne": { "duration_ms": 4600, "curve": "steps(1)" },
+  "joie": { "duration_ms": 900, "curve": [0.3, 1.4, 0.5, 1] },
+  "etiquette": { "duration_ms": 1800, "curve": "ease-out" },
+  "craque": { "duration_ms": 1800, "curve": "ease-in-out" },
+  "vacille_repos": { "duration_ms": 1200, "curve": "ease-in-out" },
+  "vacille_haut_combo": { "duration_ms": 700, "curve": "ease-in-out" },
+  "sautille": { "duration_ms": 1200, "curve": "ease-in-out" },
+  "sautille_stagger_ms": 140,
+  "pulse_valide": { "duration_ms": 1400, "curve": "ease-in-out" },
+  "vol": { "duration_ms": 400, "curve": [0.3, 0.7, 0.4, 1] },
+  "encre": { "duration_ms": 40000, "curve": "ease-in-out" }
+}
