@@ -38,6 +38,7 @@ func TestDefaultConfigCarriesTheValuesOfTheSpec(t *testing.T) {
 		{"RevancheWindow", cfg.RevancheWindow, 0.85},
 		{"GardeSlots", cfg.GardeSlots, 3},
 		{"CahierBonus", cfg.CahierBonus, 50.0},
+		{"TargetPHat", cfg.TargetPHat, 0.85},
 	}
 	for _, tt := range tests {
 		if !reflect.DeepEqual(tt.got, tt.want) {

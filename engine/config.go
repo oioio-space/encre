@@ -81,6 +81,12 @@ type Config struct {
 	ChronoSeconds, PresseSeconds float64
 	// CahierBonus is the chips the Cahier stores for the next run.
 	CahierBonus float64
+	// TargetPHat is the chance of success [Draw] aims a manche's words at.
+	// 0.85 is not a guess: Wilson, Shenhav, Straccia & Cohen (Nature
+	// Communications, 2019) measured 15.87% as the error rate that maximises
+	// learning, and FSRS-6, trained on some 700 million Anki reviews,
+	// converges on the same 0.85-0.90 band independently.
+	TargetPHat float64
 }
 
 // DefaultConfig returns the configuration of brief/ENCRE_04 §4.
@@ -116,6 +122,7 @@ func DefaultConfig() Config {
 		ChronoSeconds:   10,
 		PresseSeconds:   15,
 		CahierBonus:     50,
+		TargetPHat:      0.85,
 	}
 }
 

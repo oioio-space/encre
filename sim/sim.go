@@ -340,12 +340,6 @@ func (c *Child) playRun(week []engine.Word, weekNo int32, rng *rand.Rand, cfg en
 		owned[id] = true
 	}
 
-	// A manche mixes what is new with what is known, the way a real deck does.
-	pool := slices.Concat(deck.Week, deck.Garde, deck.Old, deck.Cursed)
-	// #nosec G404 -- the deck's own seed, so the shuffle is reproducible too.
-	draw := rand.New(rand.NewPCG(deck.Seed, 0xDEA1))
-	draw.Shuffle(len(pool), func(i, j int) { pool[i], pool[j] = pool[j], pool[i] })
-
 	run := engine.Run{
 		ID:        fmt.Sprintf("r%d-%d", weekNo, c.runs),
 		Deck:      deck,
@@ -360,13 +354,27 @@ func (c *Child) playRun(week []engine.Word, weekNo int32, rng *rand.Rand, cfg en
 		if manche == manches-1 {
 			boss = bossOf(deck.Boss)
 		}
-		for i := range cfg.WordsPerManche {
+		// Rank raises what the word is asked under (ENCRE_01 §8): Argent trims
+		// listens on manches 2 and 3, Platine and Diamant everywhere. This is
+		// the manche's own context, not the per-attempt one below — it is what
+		// [engine.Draw] ranks the pool's PHat under, and the trap measured in
+		// encre-00q.3 is ranking it under anything less real than that: doing
+		// so outside the boss context sent the boss's own failure rate to
+		// 40.6%.
+		mancheListens := 2
+		if c.Rank >= 4 {
+			mancheListens = 1
+		}
+		drawCtx := engine.Ctx{
+			Levels: c.Level, Listens: mancheListens, Sentence: manche > 0, Boss: boss,
+		}
+		words := engine.Draw(&c.Child, deck, c.states, manche, drawCtx, cfg)
+		for i, w := range words {
 			// The run's blind tokens are spent on the boss, which is where the
 			// triple chips are needed. Playing blind is a gamble — the word is
 			// never heard — so it lowers the chance as it raises the pay, and a
 			// simulation that never gambles makes the boss look impossible.
 			blind := manche == manches-1 && i < cfg.BlindTokens
-			w := pool[(manche*cfg.WordsPerManche+i)%len(pool)]
 			st := c.states[w.ID]
 			// A word's very first meeting is a Rencontre (ENCRE_01 §4): shown,
 			// not asked, and never failed. Anything else is played for real.
