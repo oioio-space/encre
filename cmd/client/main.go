@@ -34,6 +34,7 @@ import (
 	"github.com/oioio-space/encre/client/assets"
 	"github.com/oioio-space/encre/client/game"
 	"github.com/oioio-space/encre/client/ui"
+	"github.com/oioio-space/encre/engine"
 )
 
 // The light theme of ENCRE_06 §2 and §3, which overrides the night background
@@ -51,6 +52,8 @@ var (
 	flamme         = color.RGBA{R: 0xFF, G: 0xE0, B: 0x8A, A: 0xFF} // liseré des arêtes tournées vers la bougie
 	ambreBrule     = color.RGBA{R: 0xD9, G: 0x62, B: 0x2B, A: 0xFF} // lumière du sceau
 	sangSeche      = color.RGBA{R: 0x5A, G: 0x0F, B: 0x14, A: 0xFF} // creux du sceau
+	or             = color.RGBA{R: 0xF2, G: 0xC1, B: 0x4E, A: 0xFF} // gouttes d'or du pari (06 §3, §7): jamais ailleurs (02 §3)
+	orClair        = color.RGBA{R: 0xFF, G: 0xF1, B: 0xB0, A: 0xFF} // liseré des gouttes d'or
 )
 
 // Text comes from one 12-pixel bitmap face enlarged by whole factors, never
@@ -60,16 +63,7 @@ var (
 const (
 	textLabel = 1 // 12 px — labels and diagnostics
 	textKey   = 2 // 24 px — the letters on the keys (ENCRE_06 asks 26)
-	textWord  = 4 // 48 px — the word, the biggest character on screen (§4)
 )
-
-// Words carrying the accents ENCRE_03 §4 teaches at CE1, taken from its own
-// examples, plus the two the always-visible row cannot reach: cœur and flûte
-// are typed by holding o and u.
-var words = []string{
-	"école", "bébé", "mère", "forêt", "garçon",
-	"français", "tête", "cœur", "flûte", "hôpital",
-}
 
 const (
 	// The light of ENCRE_02 §4: a candle at the top left. Shadows fall to the
@@ -107,7 +101,62 @@ type client struct {
 	// does not start until the player has touched something (ENCRE_04 §2).
 	audioUnlocked bool
 
-	word int
+	// faces are the real TTFs of ticket encre-amh, the run screen's own text
+	// (ticket encre-tfy.5): the card, the header, the wager. c.face above
+	// stays the bitmap placeholder for the keyboard, a later ticket's redraw.
+	faces *faces
+
+	// The run's own state (encre-tfy.5, encre-cs5.1): the score, the cards
+	// of the demo manche ([demoManche]) and which one is current, the
+	// target this manche is played against, and which of [runPhase] it is
+	// in.
+	cfg      engine.Config
+	runScore *game.RunScore
+	cards    []runCard
+	cardIdx  int
+	target   float64
+	phase    runPhase
+
+	// wagerBlind is what the child picked at the pari: heard once, playing
+	// for [engine.Attempt.Blind]'s reward, rather than the ordinary two.
+	wagerBlind bool
+
+	// wordStart is when the current card opened for writing, for the
+	// Attempt.Millis [RunScore.Apply] scores fast against. letterTimes holds
+	// one timestamp per rune of c.entry, for the bave each recent one still
+	// carries. correction is set the instant a keystroke first diverges from
+	// the target (bead encre-cs5's "correction sans texte"), and cleared the
+	// moment the word is typed correctly again.
+	wordStart    time.Time
+	letterTimes  []time.Time
+	correction   *game.Correction
+	correctionAt time.Time
+
+	// silenceUntil is bead encre-cs5.1's own half-second: held between the
+	// word's last letter and the chips leaving for the counter.
+	silenceUntil  time.Time
+	pendingMillis int
+
+	// droplets are the chips of the word just scored, in flight to the
+	// counter (ENCRE_06 §6's `jetons`); counterShown is the counter's own
+	// eased value, which only climbs as each one lands, and counterBumpAt is
+	// when the last one did, for [client.counterArrivalScale].
+	droplets      []dropletAnim
+	counterShown  float64
+	counterBumpAt time.Time
+
+	// shakeUntil and shakeMag are the screen shake of ENCRE_02 §12's
+	// formula, and hitstopUntil freezes input on a trap letter — both set by
+	// [client.triggerHitstopAndShake].
+	shakeUntil   time.Time
+	shakeMag     float64
+	hitstopUntil time.Time
+
+	// frame is the whole run screen, drawn once per frame and then blitted
+	// into the real destination with [client.shakeOffset]'s own translation
+	// — the only place tremble ever touches a coordinate, rather than every
+	// draw call in this package carrying an offset of its own.
+	frame *ebiten.Image
 
 	// Geometry, recomputed on every Layout because the browser can rotate or
 	// resize the canvas at any moment.
@@ -133,13 +182,14 @@ type client struct {
 }
 
 func newClient() (*client, error) {
-	// La Plume, Le Greffe and La Cursive are the real fonts ticket encre-amh
-	// chose (ENCRE_02 §5), checked here against every rune the drawn keyboard
-	// can produce rather than assumed. The scene still draws through the
-	// bitmap placeholder below (c.face): wiring this registry's faces into
-	// Draw is a later ticket's redraw, not this one's.
-	required := ui.RequiredRunes(ui.Phone) + ui.RequiredRunes(ui.AZERTY) + "…·×→"
-	if _, err := ui.NewDefaultRegistry(required); err != nil {
+	// La Plume and Le Greffe are the real fonts ticket encre-amh chose
+	// (ENCRE_02 §5), loaded here for the run screen's own text (ticket
+	// encre-tfy.5); the keyboard still draws through the bitmap placeholder
+	// below (c.face), a later ticket's redraw. Both are checked against
+	// every rune either can ever need to draw, refused rather than reaching
+	// a child as an empty box mid-word (ENCRE_04 §2).
+	f, err := newFaces()
+	if err != nil {
 		return nil, fmt.Errorf("loading fonts: %w", err)
 	}
 
@@ -148,7 +198,7 @@ func newClient() (*client, error) {
 		return nil, fmt.Errorf("loading juice.json: %w", err)
 	}
 
-	c := &client{face: text.NewGoXFace(bitmapfont.Face), juice: juice}
+	c := &client{face: text.NewGoXFace(bitmapfont.Face), faces: f, juice: juice}
 
 	ctx := audio.NewContext(48000)
 	stream, err := vorbis.DecodeF32(bytes.NewReader(assets.PlumeOgg))
@@ -190,13 +240,38 @@ func (c *client) Layout(outsideWidth, outsideHeight int) (int, int) {
 // never transitions and reads nothing from g.Juice yet, but the signature is
 // what every later scene will share.
 func (c *client) Update(_ *game.Game) error {
+	now := time.Now()
 	if c.echoTicks > 0 {
 		c.echoTicks--
 	}
+	// Silence running out (encre-cs5.1) and droplets landing: clocks the run
+	// screen owns whether or not a key was pressed this frame.
+	c.tick(now)
 
 	// One pointer, whether it is a finger or a mouse.
 	x, y, down, justDown, justUp := c.pointer()
 	c.pointerX, c.pointerY = x, y
+
+	if c.phase == phaseWager {
+		if justDown {
+			c.handleWagerTap(x, y)
+		}
+		return nil
+	}
+	if c.phase != phaseWriting {
+		// phaseSilence, phaseDroplets: nothing to do but let c.tick above
+		// carry the clock forward.
+		return nil
+	}
+	if now.Before(c.hitstopUntil) {
+		// The freeze of ENCRE_02 §12's hitstop: input does not resume until
+		// it is over (see [client.triggerHitstopAndShake]).
+		return nil
+	}
+	if justDown && c.speakerTapped(x, y) {
+		c.playPlume()
+		return nil
+	}
 
 	switch {
 	case justDown:
@@ -215,16 +290,40 @@ func (c *client) Update(_ *game.Game) error {
 		if c.entry.Type(r) {
 			c.echo(r)
 			c.playPlume()
+			c.onLetterTyped()
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		c.entry.Erase()
+		c.eraseLastLetter()
 		c.playPlume()
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter) {
-		c.validate()
-	}
 	return nil
+}
+
+// handleWagerTap acts on a tap during [phaseWager]: brief/ENCRE_06 §7's two
+// buttons, [ui.Screen.WagerRects].
+func (c *client) handleWagerTap(x, y int) {
+	twice, once := c.screen.WagerRects()
+	switch {
+	case within(twice, x, y):
+		c.chooseWager(false)
+	case within(once, x, y):
+		c.chooseWager(true)
+	}
+}
+
+// within reports whether (x, y) falls inside r.
+func within(r ui.Rect, x, y int) bool {
+	return x >= r.X && x < r.X+r.W && y >= r.Y && y < r.Y+r.H
+}
+
+// eraseLastLetter removes the last letter typed, and its own bave timestamp
+// with it, so [client.drawBaveLetters] never indexes past c.letterTimes.
+func (c *client) eraseLastLetter() {
+	c.entry.Erase()
+	if n := len(c.letterTimes); n > 0 {
+		c.letterTimes = c.letterTimes[:n-1]
+	}
 }
 
 // pointer folds touch and mouse into one, because the prototype has to behave
@@ -255,18 +354,25 @@ func (c *client) release(x, y int) {
 
 	if vs := c.openVariants(); len(vs) > 0 {
 		if r, ok := c.variantAt(x, y); ok {
-			c.entry.Type(r)
+			if c.entry.Type(r) {
+				c.onLetterTyped()
+			}
 			c.playPlume()
 			return
 		}
 	}
 	switch c.held.Kind {
 	case ui.KeyErase:
-		c.entry.Erase()
+		c.eraseLastLetter()
 	case ui.KeyValidate:
-		c.validate()
+		// No-op: brief/ENCRE_06 §4's own seal only pulses once the word is
+		// already complete ([anim.Juice.PulseValide]) — completion itself is
+		// automatic, the instant the word matches (see
+		// [client.onLetterTyped]).
 	case ui.KeyRune:
-		c.entry.Type(c.held.Rune)
+		if c.entry.Type(c.held.Rune) {
+			c.onLetterTyped()
+		}
 	}
 	c.playPlume()
 }
@@ -314,11 +420,6 @@ func (c *client) echo(r rune) {
 	}
 }
 
-func (c *client) validate() {
-	c.word = (c.word + 1) % len(words)
-	c.entry.Clear()
-}
-
 // playPlume restarts the scratch. The first call is also what unlocks the
 // browser's audio context, which is why it hangs off the first tap.
 func (c *client) playPlume() {
@@ -333,15 +434,77 @@ func (c *client) playPlume() {
 }
 
 // Draw implements game.Scene. screen is unused: this prototype still lays out
-// from the fields Layout copied out of it, not to change a pixel of what T00
-// validated.
+// from the fields Layout copied out of it.
+//
+// Everything draws into c.frame first, and c.frame is blitted into dst with
+// [client.shakeOffset]'s own translation last (ticket encre-tfy.5's
+// tremblement): the one place any coordinate in this package moves for it.
 func (c *client) Draw(dst *ebiten.Image, _ ui.Screen) {
-	dst.Fill(parchemin)
-	c.drawDiagnostics(dst)
-	c.drawCard(dst)
-	c.drawEntry(dst)
-	c.drawKeyboard(dst)
-	c.drawOpenVariants(dst)
+	c.ensureFrame()
+	c.frame.Fill(parchemin)
+	c.drawDiagnostics(c.frame)
+
+	if c.phase == phaseWager {
+		// "jamais deux textes simultanés" (ENCRE_06 §8): the card and the
+		// header it would otherwise compete with do not draw at all while
+		// the pari is open — and neither does the keyboard, which shares
+		// the wager buttons' own zone ([ui.Screen.WagerRects] sits inside
+		// the board's area, on purpose: nothing is typed until the pari is
+		// answered).
+		c.drawWager(c.frame)
+	} else {
+		c.drawHeader(c.frame)
+		c.drawCard(c.frame)
+		c.drawEntry(c.frame)
+		c.drawDroplets(c.frame)
+		c.drawSpeaker(c.frame)
+		c.drawKeyboard(c.frame)
+		c.drawOpenVariants(c.frame)
+	}
+
+	c.blitFrameWithShake(dst)
+}
+
+// ensureFrame (re)allocates c.frame when the logical resolution changes —
+// the browser resizing or rotating the canvas (see [client.Layout]).
+func (c *client) ensureFrame() {
+	if c.frame != nil {
+		b := c.frame.Bounds()
+		if b.Dx() == c.screenW && b.Dy() == c.screenH {
+			return
+		}
+	}
+	c.frame = ebiten.NewImage(max(c.screenW, 1), max(c.screenH, 1))
+}
+
+// blitFrameWithShake draws c.frame into dst, offset by [client.shakeOffset].
+func (c *client) blitFrameWithShake(dst *ebiten.Image) {
+	dx, dy := c.shakeOffset()
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(dx, dy)
+	dst.DrawImage(c.frame, op)
+}
+
+// shakeOffset is the screen's own tremblement at the current instant:
+// ENCRE_02 §12's formula ([client.triggerHitstopAndShake] sets the
+// amplitude and the deadline), eased out by [anim.Juice.Tremble]'s own
+// curve rather than cut off — ENCRE_06 §6 corrects its decroissance to
+// 500 ms.
+func (c *client) shakeOffset() (dx, dy float64) {
+	if c.shakeUntil.IsZero() {
+		return 0, 0
+	}
+	now := time.Now()
+	if now.After(c.shakeUntil) {
+		return 0, 0
+	}
+	total := c.juice.Tremble.Duration.Duration()
+	remaining := c.shakeUntil.Sub(now)
+	t := 1 - float64(remaining)/float64(total)
+	decay := 1 - eased(c.juice.Tremble, min(max(t, 0), 1))
+	mag := c.shakeMag * decay
+	ms := float64(now.UnixMilli())
+	return mag * math.Sin(ms/17), mag * math.Cos(ms/13)
 }
 
 // drawText draws s centred on (cx, cy), enlarged by the whole factor scale. The
@@ -516,23 +679,6 @@ func (c *client) letterSide() int {
 	return side
 }
 
-func (c *client) drawCard(screen *ebiten.Image) {
-	x, y := float32(c.cardX), float32(c.cardY)
-	w, h := float32(c.cardW), float32(c.cardH)
-	raised(screen, x, y, w, h, 2, parcheminClair, true)
-
-	c.drawText(screen, "le mot à écrire", float64(x+w/2), float64(y)+26, textLabel, cuir)
-	c.drawTracked(screen, words[c.word], float64(x+w/2), float64(y+h/2), textWord, encre)
-}
-
-func (c *client) drawEntry(screen *ebiten.Image) {
-	shown, col := c.entry.Text(), encre
-	if shown == "" {
-		shown, col = "…", cuir
-	}
-	c.drawTracked(screen, shown, float64(c.cardX)+float64(c.cardW)/2, float64(c.entryY), textWord, col)
-}
-
 func (c *client) drawKeyboard(screen *ebiten.Image) {
 	vector.FillRect(screen, float32(c.boardX), float32(c.boardY),
 		float32(c.boardW), float32(c.boardH), parcheminVieux, false)
@@ -616,7 +762,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ebiten.SetWindowTitle("ENCRE — prototype clavier (T00)")
+	ebiten.SetWindowTitle("ENCRE — écran de run (encre-tfy.5)")
 	// On a computer the window opens in landscape, the orientation ENCRE_04 §2
 	// gives that device; the 390-wide portrait screen is for the phone.
 	mw, mh := ebiten.Monitor().Size()
@@ -624,12 +770,16 @@ func main() {
 	ebiten.SetWindowSize(ui.LandscapeWidth*scale, ui.LandscapeHeight*scale)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
-	// A single scene for now, the run screen of the T00 prototype, registered
-	// under game.Run: the scene graph of T23 exists so later tickets add
-	// scenes here rather than growing client into one, but this one does not
-	// yet transition anywhere.
-	g := game.NewGame(game.Run, c.juice)
-	stage := game.NewStage(g, map[game.SceneID]game.Scene{game.Run: c})
+	// The scene graph of ticket encre-tfy.5: the Director starts at Garde
+	// (brief/ENCRE_02 §14's étui de cuir) and Replaces itself with Run the
+	// instant the sceau *Jouer* is tapped ([gardeScene.Update]) — the run's
+	// own sequence never steps back to it (see [game.Director.Replace]).
+	garde := &gardeScene{c: c}
+	g := game.NewGame(game.Garde, c.juice)
+	stage := game.NewStage(g, map[game.SceneID]game.Scene{
+		game.Garde: garde,
+		game.Run:   c,
+	})
 	if err := ebiten.RunGame(&runner{client: c, stage: stage}); err != nil {
 		log.Fatal(err)
 	}

@@ -386,6 +386,16 @@ type Juice struct {
 	DropletStagger   Millis `json:"jetons_stagger_ms,omitzero"`
 	DropletPerTokens int    `json:"droplet_per_tokens,omitzero"`
 
+	// ScoreSilence is the pause after a word's last letter and before its
+	// chips start toward the counter (brief/ENCRE_07 §4bis, ticket
+	// encre-cs5.1): LocalThunk's own justification for Balatro's hidden
+	// score, quoted there, is that "the game is more fun when you build your
+	// Rube Goldberg machine and watch it run before knowing whether the hand
+	// passes". A caller holds here — no droplet leaves the word, the counter
+	// does not move — before [RunScore.Apply]'s chips travel by [Droplet].
+	// It carries no curve of its own: a silence has nothing to ease.
+	ScoreSilence Millis `json:"score_silence_ms,omitzero"`
+
 	// CounterMinDuration and CounterMaxDuration bound the counter's own
 	// duration, which grows with log(score) between the two — ENCRE_02 §12's
 	// rule, which ENCRE_06 §6 does not override: its 1.8 s `compteur` row is
@@ -475,6 +485,8 @@ func DefaultJuice() Juice {
 	return Juice{
 		HitstopTrap:      80,
 		HitstopLegendary: 150,
+
+		ScoreSilence: 500,
 
 		SquashScale:    0.85,
 		SquashDuration: 60,

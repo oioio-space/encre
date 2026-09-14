@@ -24,6 +24,7 @@ func TestDefaultJuiceMatchesBriefENCRE06Section6(t *testing.T) {
 	}{
 		// brief/ENCRE_02 §12 only: no ENCRE_06 §6 entry, no curve.
 		{"HitstopTrap", j.HitstopTrap.Duration(), 80 * time.Millisecond},
+		{"ScoreSilence", j.ScoreSilence.Duration(), 500 * time.Millisecond},
 		{"HitstopLegendary", j.HitstopLegendary.Duration(), 150 * time.Millisecond},
 		{"SquashScale", j.SquashScale, 0.85},
 		{"SquashDuration", j.SquashDuration.Duration(), 60 * time.Millisecond},

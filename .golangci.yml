@@ -55,6 +55,7 @@ linters:
         - poit
         - cacher
         - therefor
+        - complets
     godot:
       scope: declarations
       capital: false
