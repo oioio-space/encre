@@ -357,6 +357,31 @@ func (c *client) drawText(dst *ebiten.Image, s string, cx, cy float64, scale int
 	text.Draw(dst, s, c.face, op)
 }
 
+// drawTracked draws s centred on (cx, cy) exactly as [client.drawText] does,
+// but letter by letter with ui.TrackingRatio opened between each pair —
+// encre-tfy.1's correction, on the word being typed (ENCRE_06 §4, §5): Zorzi
+// et al. (PNAS 2012) measured this doubling a child's reading accuracy,
+// immediately. [ui.Tracked] does the arithmetic; this only asks the face for
+// each rune's own advance and places it.
+func (c *client) drawTracked(dst *ebiten.Image, s string, cx, cy float64, scale int, col color.Color) {
+	advance := func(r rune) float64 {
+		g := string(r)
+		return text.AdvanceAt(g, len(g), c.face) * float64(scale)
+	}
+	positions, width := ui.Tracked(s, 12*float64(scale), advance)
+
+	left := cx - width/2
+	for i, r := range []rune(s) {
+		op := &text.DrawOptions{}
+		op.GeoM.Scale(float64(scale), float64(scale))
+		op.GeoM.Translate(left+positions[i], cy)
+		op.Filter = ebiten.FilterNearest
+		op.ColorScale.ScaleWithColor(col)
+		op.PrimaryAlign, op.SecondaryAlign = text.AlignStart, text.AlignCenter
+		text.Draw(dst, string(r), c.face, op)
+	}
+}
+
 // roundedRect fills a rectangle with the 6-pixel corner ENCRE_06 §4 gives every
 // surface of the game. Sharp corners are what made the keys read as a grid
 // rather than as things to press.
@@ -497,7 +522,7 @@ func (c *client) drawCard(screen *ebiten.Image) {
 	raised(screen, x, y, w, h, 2, parcheminClair, true)
 
 	c.drawText(screen, "le mot à écrire", float64(x+w/2), float64(y)+26, textLabel, cuir)
-	c.drawText(screen, words[c.word], float64(x+w/2), float64(y+h/2), textWord, encre)
+	c.drawTracked(screen, words[c.word], float64(x+w/2), float64(y+h/2), textWord, encre)
 }
 
 func (c *client) drawEntry(screen *ebiten.Image) {
@@ -505,7 +530,7 @@ func (c *client) drawEntry(screen *ebiten.Image) {
 	if shown == "" {
 		shown, col = "…", cuir
 	}
-	c.drawText(screen, shown, float64(c.cardX)+float64(c.cardW)/2, float64(c.entryY), textWord, col)
+	c.drawTracked(screen, shown, float64(c.cardX)+float64(c.cardW)/2, float64(c.entryY), textWord, col)
 }
 
 func (c *client) drawKeyboard(screen *ebiten.Image) {
@@ -544,7 +569,10 @@ func drawKey(dst *ebiten.Image, c *client, k ui.Key, x, y, w, h float64, pressed
 		drawSeal(dst, float32(x+w/2), float32(y+inner*0.38), float32(min(w*0.20, inner*0.24)))
 		c.drawText(dst, "valide", x+w/2, y+inner*0.78, textLabel, brique)
 	default:
-		c.drawText(dst, k.Label(), x+w/2, y+inner/2, textKey, encre)
+		// A single letter has no pair to open a gap against, so drawTracked
+		// draws it identically to drawText — this keeps every key's letter on
+		// the one code path encre-tfy.1 corrects.
+		c.drawTracked(dst, k.Label(), x+w/2, y+inner/2, textKey, encre)
 	}
 
 	// A dot marks the keys that hold more under a long press.

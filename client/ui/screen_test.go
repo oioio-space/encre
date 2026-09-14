@@ -177,6 +177,21 @@ func TestTheCardIsAWholeMultipleOfItsDesignSize(t *testing.T) {
 	}
 }
 
+func TestThePhoneBandsMatchTheENCRE07CorrectionOfTheCard(t *testing.T) {
+	// ENCRE_07 §4.1: the card grows from 180×240 (×1.875, forbidden by ENCRE_02
+	// §15) to 192×256 (×2), and the keyboard band gives back the 16 px the card
+	// gained, from 334 to 318 — the two together still summing to the 844 of
+	// ENCRE_06 §4's table.
+	s := ui.NewScreen(ui.PortraitWidth, ui.PortraitHeight)
+
+	if s.CardW != 192 || s.CardH != 256 {
+		t.Errorf("card is %dx%d, want 192x256", s.CardW, s.CardH)
+	}
+	if s.BoardH != 318 {
+		t.Errorf("keyboard band is %d px tall, want 318", s.BoardH)
+	}
+}
+
 func TestNoBandIsLeftMostlyEmpty(t *testing.T) {
 	// Empty space that carries nothing reads as a mistake. Each band is checked
 	// against what it actually holds: the card, one line of 48-pixel text, and

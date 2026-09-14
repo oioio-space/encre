@@ -27,6 +27,28 @@ const (
 // space between the rows reads as a mistake.
 const keyAspect = 1.3
 
+// The portrait phone's five bands, fixed pixel heights from brief/ENCRE_06
+// §4's table, corrected by ENCRE_07 §4.1: the card grows from a fractional
+// ×1.875 (180×240, forbidden by ENCRE_02 §15) to a whole ×2 (192×256), and the
+// keyboard band gives back the 16 px the card gained, from 334 to 318. They
+// sum to exactly PortraitHeight (844), which is why the keyboard's is
+// subtracted rather than derived from its own rows: a row-based height cannot
+// land on 318, since it is not a multiple of the keyboard's five rows.
+//
+// cardBandMargin is the slack ENCRE_06 §4's own numbers leave around the card
+// inside its band — 268-240 before the correction, 284-256 after it — kept as
+// the rule rather than the two numbers it happens to produce, so a future
+// change to the art's own size still lands the card centred with the same
+// breathing room.
+const (
+	phoneHeaderH    = 104
+	phoneTargetBarH = 12
+	phoneCardBandH  = 284
+	phoneWordBandH  = 126
+	phoneBoardH     = 318
+	cardBandMargin  = 28
+)
+
 // Screen is where each band of the run screen sits, for one window size.
 //
 // It lives here rather than in the client's loop because it is arithmetic, not
@@ -63,40 +85,67 @@ type Screen struct {
 // fractions alone left the middle of the screen empty, which reads as a mistake
 // rather than as breathing room.
 func NewScreen(outsideW, outsideH int) Screen {
-	s := Screen{W: LandscapeWidth, H: LandscapeHeight, Layout: AZERTY}
 	if outsideH >= outsideW {
-		s = Screen{W: PortraitWidth, H: PortraitHeight, Layout: Phone}
+		return newPhoneScreen()
 	}
+	return newAZERTYScreen()
+}
+
+// newPhoneScreen lays out the portrait phone at the fixed logical resolution
+// of PortraitWidth by PortraitHeight, in the five bands of brief/ENCRE_06 §4
+// as corrected by ENCRE_07 §4.1 (see the phone… constants): a header, a
+// target bar, the card and the word beneath it as one centred block, and the
+// keyboard taking whatever height the other four leave.
+func newPhoneScreen() Screen {
+	s := Screen{W: PortraitWidth, H: PortraitHeight, Layout: Phone}
+
+	s.BoardW, s.BoardH = s.W, phoneBoardH
+	s.BoardX, s.BoardY = 0, s.H-s.BoardH
+
+	s.WordBandH = phoneWordBandH
+	s.CardBandH = phoneCardBandH
+	// The largest whole multiple of the card's art that leaves cardBandMargin
+	// of slack around it — the margin ENCRE_06 §4's own band and card sizes
+	// imply, kept as a rule so it survives the art's own size changing.
+	scale := 1
+	for cand := (phoneCardBandH - cardBandMargin) / cardArtH; cand >= 1; cand-- {
+		if cardArtW*cand <= s.W*80/100 {
+			scale = cand
+			break
+		}
+	}
+	s.CardW, s.CardH = cardArtW*scale, cardArtH*scale
+
+	top := phoneHeaderH + phoneTargetBarH
+	s.CardX = (s.W - s.CardW) / 2
+	s.CardY = top + (phoneCardBandH-s.CardH)/2
+	s.EntryY = top + phoneCardBandH + s.WordBandH/2
+
+	return s
+}
+
+// newAZERTYScreen lays out the tablet and the computer, at the fixed logical
+// resolution of LandscapeWidth by LandscapeHeight: the AZERTY keyboard in a
+// column of its own, and the card and the word beside it, sized by what each
+// holds rather than by a fixed band — brief/ENCRE_06 §4's fixed table is
+// telephone-only.
+func newAZERTYScreen() Screen {
+	s := Screen{W: LandscapeWidth, H: LandscapeHeight, Layout: AZERTY}
 
 	// The keyboard takes only the height its rows need. Given the width it has
 	// and the columns of its layout, a row is as tall as a key may be — so the
 	// keys tile their area instead of floating in it.
-	s.BoardW = s.W
-	if s.Layout == AZERTY {
-		s.BoardW = s.W * 55 / 100
-	}
-	// A row is as tall as a letter key may be, so the keys tile their area
-	// instead of floating in it. The width comes from the layout's own column
-	// count, not from counting a row's entries — the last row holds two special
-	// keys and would give a misleading answer.
+	s.BoardW = s.W * 55 / 100
 	rowH := int(float64(s.BoardW/LetterColumns(s.Layout)) * keyAspect)
 	s.BoardH = min(len(rows(s.Layout))*rowH, s.H*55/100)
 	s.BoardX = s.W - s.BoardW
-	// A phone keyboard belongs at the bottom, under the thumb. On a computer
-	// there is no thumb and nothing below it, so it is centred instead — which
-	// puts it on the same centre line as the card beside it, and stops the two
-	// columns from drifting apart.
-	s.BoardY = s.H - s.BoardH
-	if s.Layout == AZERTY {
-		s.BoardY = (s.H - s.BoardH) / 2
-	}
+	// There is no thumb to put the keyboard under and nothing below it, so it
+	// is centred instead — which puts it on the same centre line as the card
+	// beside it, and stops the two columns from drifting apart.
+	s.BoardY = (s.H - s.BoardH) / 2
 
-	// What is left above the keyboard — the whole width in portrait, the left
-	// column in landscape — holds the card and the word beneath it.
-	colW, colH := s.W, s.H-s.BoardH
-	if s.Layout == AZERTY {
-		colW, colH = s.W-s.BoardW, s.H
-	}
+	// What is left beside the keyboard holds the card and the word beneath it.
+	colW, colH := s.W-s.BoardW, s.H
 	header := colH * 12 / 100
 	s.WordBandH = min(colH*16/100, 3*48)
 
