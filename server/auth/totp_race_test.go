@@ -29,13 +29,18 @@ func TestVerifyParentTOTPRaceIsAtomic(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	ctx := t.Context()
+	pep := testPepper(t)
 	enroll, err := auth.EnrollTOTP("parent@example.com")
 	if err != nil {
 		t.Fatalf("EnrollTOTP() error = %v", err)
 	}
+	sealed, err := pep.Encrypt([]byte(enroll.Secret))
+	if err != nil {
+		t.Fatalf("Encrypt() error = %v", err)
+	}
 	p := &store.Parent{
 		ID: "p1", Email: "parent@example.com",
-		PassHash: []byte("x"), TOTPSecret: []byte(enroll.Secret), CreatedAt: time.Now(),
+		PassHash: []byte("x"), TOTPSecret: sealed, CreatedAt: time.Now(),
 	}
 	if err := db.CreateParent(ctx, p); err != nil {
 		t.Fatalf("CreateParent() error = %v", err)
@@ -49,7 +54,7 @@ func TestVerifyParentTOTPRaceIsAtomic(t *testing.T) {
 	var wg sync.WaitGroup
 	for range concurrent {
 		wg.Go(func() {
-			if err := auth.VerifyParentTOTP(ctx, db, "p1", code, now); err == nil {
+			if err := auth.VerifyParentTOTP(ctx, db, "p1", code, now, pep); err == nil {
 				successes.Add(1)
 			}
 		})

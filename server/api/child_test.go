@@ -28,14 +28,16 @@ func TestChildLoginSetsSessionCookieAndAllowsMe(t *testing.T) {
 }
 
 // TestChildLoginRejectsWrongPattern is the regression test for a handler
-// that would trust auth.LoginChild's error text or forget to return early:
-// a wrong pattern must answer 401 with no session cookie set, not a session
-// for the wrong child.
+// that would trust auth.LoginChildInFamily's error text or forget to return
+// early: a wrong pattern must answer 401 with no session cookie set, not a
+// session for the wrong child.
 func TestChildLoginRejectsWrongPattern(t *testing.T) {
 	ts := newTestServer(t)
 	seedChild(t, ts.DB, "child1", "Mia", "1379")
 
-	resp := ts.post(t, "/api/v1/child/login", map[string]string{"pseudo": "Mia", "pattern": "0000"})
+	resp := ts.post(t, "/api/v1/child/login", map[string]string{
+		"familyCode": "child1-parent-family", "childID": "child1", "pattern": "0000",
+	})
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("child/login with wrong pattern: status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
 	}

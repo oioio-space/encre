@@ -2,12 +2,38 @@ package store_test
 
 import (
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/oioio-space/encre/engine"
 	"github.com/oioio-space/encre/server/store"
 )
+
+// TestChildLogValueRedactsPatternHash is the test encre-qpx.8 (M7) asks for:
+// logging a Child must never write its peppered pattern hash to the log
+// output, structured or not.
+func TestChildLogValueRedactsPatternHash(t *testing.T) {
+	c := &store.Child{
+		ID: "child1", ParentID: "parent1", Pseudo: "Mia",
+		PatternHash: []byte("super-secret-peppered-hash"),
+		CreatedAt:   time.Now(),
+	}
+
+	var buf strings.Builder
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	logger.Info("child", "child", c)
+	logger.Info("child-plain", "child", c.String())
+
+	out := buf.String()
+	if strings.Contains(out, "super-secret-peppered-hash") {
+		t.Errorf("log output contains the raw pattern hash: %s", out)
+	}
+	if !strings.Contains(out, "Mia") {
+		t.Errorf("log output does not contain the pseudo (not a secret this rule protects): %s", out)
+	}
+}
 
 // seedParent inserts and returns a parent the caller may attach children to.
 func seedParent(t *testing.T, db *store.Store, id string) *store.Parent {

@@ -10,9 +10,12 @@ import "errors"
 var ErrInvalidCredentials = errors.New("auth: invalid credentials")
 
 // ErrSessionExpired is returned by [LookupSession] for a session whose
-// expiry has passed. The row is left for [CleanupExpiredSessions] (backed by
-// [server/store.Store.PurgeExpiredSessions]) rather than deleted inline, so a
-// read-only lookup never needs a write.
+// expiry has passed. The row is left for
+// [server/store.Store.PurgeExpiredSessions] rather than deleted inline, so a
+// read-only lookup never needs a write. Nothing in this codebase calls that
+// method on a schedule yet (encre-qpx.8, L6) — a deployment's startup or a
+// periodic job must, or expired rows accumulate forever; they are otherwise
+// harmless, since [LookupSession] already rejects them by expiry alone.
 var ErrSessionExpired = errors.New("auth: session expired")
 
 // ErrTOTPRequired is returned by actions ENCRE_04 §7 marks sensitive when the

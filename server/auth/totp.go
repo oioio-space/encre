@@ -46,8 +46,9 @@ type TOTPEnrollment struct {
 }
 
 // EnrollTOTP generates a new TOTP secret for accountEmail and renders it as a
-// scannable QR code. Nothing is persisted: the caller stores
-// [TOTPEnrollment.Secret] only once the parent has proven they captured it.
+// scannable QR code. Nothing is persisted: [BeginTOTPEnrollment] is the
+// entry point that actually stores anything, and even that stores only an
+// encrypted copy — see its doc comment.
 func EnrollTOTP(accountEmail string) (*TOTPEnrollment, error) {
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      totpIssuer,
@@ -67,6 +68,104 @@ func EnrollTOTP(accountEmail string) (*TOTPEnrollment, error) {
 	}
 
 	return &TOTPEnrollment{Secret: key.Secret(), QRPNG: buf.Bytes()}, nil
+}
+
+// totpPendingTTL is how long a [BeginTOTPEnrollment] secret stays valid
+// before [CompleteTOTPEnrollment] must consume it. A few minutes is enough
+// for a parent to open their authenticator app and scan a QR code without
+// leaving a forgotten enrollment attempt viable indefinitely.
+const totpPendingTTL = 10 * time.Minute
+
+// ErrTOTPEnrollmentExpired is returned by [CompleteTOTPEnrollment] when
+// parentID's pending enrollment has passed [totpPendingTTL], or none exists
+// at all — the two are reported identically so a caller cannot use this
+// function to probe whether a parent ID has ever started enrolling.
+var ErrTOTPEnrollmentExpired = errors.New("auth: totp enrollment expired or not found")
+
+// BeginTOTPEnrollment calls [EnrollTOTP] for accountEmail and stores the
+// resulting secret, encrypted under pep, as parentID's pending enrollment
+// (encre-qpx.7, [server/store.Store.PutTOTPPending]) — replacing any earlier
+// pending enrollment for the same parent. The secret this returns for the
+// caller to render as a QR code never needs to leave the server again after
+// that: it is not embedded in the page as a hidden field or cookie the way a
+// naive implementation would, so it cannot leak through browser history, the
+// back/forward cache, or a Referer header the way one would. pep must not be
+// nil — see [ErrPepperRequired].
+func BeginTOTPEnrollment(ctx context.Context, db *store.Store, parentID, accountEmail string, now time.Time, pep *Pepper) (*TOTPEnrollment, error) {
+	if pep == nil {
+		return nil, ErrPepperRequired
+	}
+	enroll, err := EnrollTOTP(accountEmail)
+	if err != nil {
+		return nil, err
+	}
+	sealed, err := pep.Encrypt([]byte(enroll.Secret))
+	if err != nil {
+		return nil, fmt.Errorf("encrypting pending totp secret: %w", err)
+	}
+	if err := db.PutTOTPPending(ctx, &store.TOTPPending{
+		ParentID:  parentID,
+		Secret:    sealed,
+		ExpiresAt: now.Add(totpPendingTTL),
+	}); err != nil {
+		return nil, fmt.Errorf("storing pending totp enrollment: %w", err)
+	}
+	return enroll, nil
+}
+
+// CompleteTOTPEnrollment validates code against parentID's pending
+// enrollment ([BeginTOTPEnrollment]) and, on success, promotes it to
+// [server/store.Parent.TOTPSecret] (still encrypted under pep) and deletes
+// the pending row — an enrollment can complete at most once. It returns
+// [ErrTOTPEnrollmentExpired] if no pending enrollment exists or it has
+// passed [totpPendingTTL], and [ErrInvalidTOTPCode] for a wrong code, never
+// distinguishing "expired" from "never started" (see that error's doc
+// comment) nor logging or returning the secret either way. pep must not be
+// nil — see [ErrPepperRequired].
+func CompleteTOTPEnrollment(ctx context.Context, db *store.Store, parentID, code string, now time.Time, pep *Pepper) error {
+	if pep == nil {
+		return ErrPepperRequired
+	}
+	pending, err := db.TOTPPendingByParentID(ctx, parentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrTOTPEnrollmentExpired
+	}
+	if err != nil {
+		return err
+	}
+	if now.After(pending.ExpiresAt) {
+		return ErrTOTPEnrollmentExpired
+	}
+
+	secret, err := pep.Decrypt(pending.Secret)
+	if err != nil {
+		return fmt.Errorf("decrypting pending totp secret: %w", err)
+	}
+	ok, _, err := ValidateTOTP(code, string(secret), now)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrInvalidTOTPCode
+	}
+
+	sealed, err := pep.Encrypt(secret)
+	if err != nil {
+		return fmt.Errorf("encrypting totp secret: %w", err)
+	}
+	if err := db.SetParentTOTPSecret(ctx, parentID, sealed); err != nil {
+		return fmt.Errorf("promoting totp secret: %w", err)
+	}
+	if err := db.DeleteTOTPPending(ctx, parentID); err != nil {
+		return fmt.Errorf("clearing pending totp enrollment: %w", err)
+	}
+	// A freshly enrolled second factor must not leave a session that was
+	// only ever protected by a password still valid: see
+	// [store.Store.DeleteSessionsForSubject]'s doc comment (encre-qpx.6).
+	if _, err := db.DeleteSessionsForSubject(ctx, parentID); err != nil {
+		return fmt.Errorf("revoking sessions after totp enrollment: %w", err)
+	}
+	return nil
 }
 
 // ValidateTOTP reports whether code is valid for secret at time now, within
@@ -110,8 +209,13 @@ func ValidateTOTP(code, secret string, now time.Time) (ok bool, step int64, err 
 // and atomically marks the matching step used, so the same code cannot
 // validate twice even from two concurrent requests. It returns
 // [ErrInvalidTOTPCode] for a wrong, expired or replayed code, and never
-// includes the secret or the code in any error.
-func VerifyParentTOTP(ctx context.Context, db *store.Store, parentID, code string, now time.Time) error {
+// includes the secret or the code in any error. pep must not be nil — see
+// [ErrPepperRequired] — since [server/store.Parent.TOTPSecret] is only ever
+// stored encrypted under one.
+func VerifyParentTOTP(ctx context.Context, db *store.Store, parentID, code string, now time.Time, pep *Pepper) error {
+	if pep == nil {
+		return ErrPepperRequired
+	}
 	p, err := db.ParentByID(ctx, parentID)
 	if err != nil {
 		return err
@@ -119,8 +223,12 @@ func VerifyParentTOTP(ctx context.Context, db *store.Store, parentID, code strin
 	if len(p.TOTPSecret) == 0 {
 		return ErrInvalidTOTPCode
 	}
+	secret, err := pep.Decrypt(p.TOTPSecret)
+	if err != nil {
+		return fmt.Errorf("decrypting totp secret: %w", err)
+	}
 
-	ok, step, err := ValidateTOTP(code, string(p.TOTPSecret), now)
+	ok, step, err := ValidateTOTP(code, string(secret), now)
 	if err != nil {
 		return err
 	}
@@ -143,12 +251,12 @@ func VerifyParentTOTP(ctx context.Context, db *store.Store, parentID, code strin
 // ([server/store.Session.TOTPOKUntil]) by [TOTPFreshDuration] from now — the
 // step ENCRE_04 §7's sensitive parent actions require before they proceed.
 // sess must be a parent session; a child session always fails with
-// [ErrInvalidTOTPCode].
-func VerifyParentTOTPForSession(ctx context.Context, db *store.Store, sess *store.Session, code string, now time.Time) error {
+// [ErrInvalidTOTPCode]. pep must not be nil — see [ErrPepperRequired].
+func VerifyParentTOTPForSession(ctx context.Context, db *store.Store, sess *store.Session, code string, now time.Time, pep *Pepper) error {
 	if sess.Kind != store.SessionParent {
 		return ErrInvalidTOTPCode
 	}
-	if err := VerifyParentTOTP(ctx, db, sess.SubjectID, code, now); err != nil {
+	if err := VerifyParentTOTP(ctx, db, sess.SubjectID, code, now, pep); err != nil {
 		return err
 	}
 	_, err := db.DB().ExecContext(ctx,

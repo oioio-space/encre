@@ -250,3 +250,176 @@ func TestClearSessionCookie(t *testing.T) {
 		t.Errorf("cookie MaxAge = %d, want negative (expire immediately)", c.MaxAge)
 	}
 }
+
+// TestRequireParentRejectsSessionWithNoTOTPCheckYet checks that a brand-new
+// parent session — valid, but never through a TOTP check — does not satisfy
+// RequireParent: TOTPOKUntil is the zero Time until [VerifyParentTOTPForSession]
+// sets it, and the zero Time is never "after now".
+func TestRequireParentRejectsSessionWithNoTOTPCheckYet(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	parentID := seedParent(t, db, "parent1")
+	now := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := auth.CreateSession(ctx, db, store.SessionParent, parentID, now)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+	sess, err := auth.LookupSession(ctx, db, token, store.SessionParent, now)
+	if err != nil {
+		t.Fatalf("LookupSession() error = %v", err)
+	}
+
+	if err := auth.RequireParent(sess, now); !errors.Is(err, auth.ErrTOTPRequired) {
+		t.Errorf("RequireParent() before any TOTP check: error = %v, want ErrTOTPRequired", err)
+	}
+}
+
+// TestRequireParentAcceptsFreshParentSession checks the happy path: a
+// parent session right after a successful TOTP check satisfies RequireParent.
+func TestRequireParentAcceptsFreshParentSession(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	parentID := seedParent(t, db, "parent1")
+	now := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := auth.CreateSession(ctx, db, store.SessionParent, parentID, now)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+	sess, err := auth.LookupSession(ctx, db, token, store.SessionParent, now)
+	if err != nil {
+		t.Fatalf("LookupSession() error = %v", err)
+	}
+	sess.TOTPOKUntil = now.Add(auth.TOTPFreshDuration)
+
+	if err := auth.RequireParent(sess, now); err != nil {
+		t.Errorf("RequireParent() right after a TOTP check: error = %v, want nil", err)
+	}
+}
+
+// TestRequireParentRejectsLapsedFreshness is encre-qpx.6's core regression
+// test (M5): a parent session stays valid for ParentSessionTTL (7 days) but
+// TOTP freshness only lasts TOTPFreshDuration (1 hour) — RequireParent must
+// refuse the session once freshness has lapsed, well before the session
+// itself expires.
+func TestRequireParentRejectsLapsedFreshness(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	parentID := seedParent(t, db, "parent1")
+	now := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := auth.CreateSession(ctx, db, store.SessionParent, parentID, now)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+	sess, err := auth.LookupSession(ctx, db, token, store.SessionParent, now)
+	if err != nil {
+		t.Fatalf("LookupSession() error = %v", err)
+	}
+	sess.TOTPOKUntil = now.Add(auth.TOTPFreshDuration)
+
+	if err := auth.RequireParent(sess, now); err != nil {
+		t.Errorf("RequireParent() right after a TOTP check: error = %v, want nil", err)
+	}
+
+	later := now.Add(auth.TOTPFreshDuration + time.Second)
+	if err := auth.RequireParent(sess, later); !errors.Is(err, auth.ErrTOTPRequired) {
+		t.Errorf("RequireParent() past TOTPFreshDuration (session itself still valid for days): error = %v, want ErrTOTPRequired", err)
+	}
+}
+
+func TestRequireParentRejectsChildSession(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	childID := seedChild(t, db, "child1")
+	now := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := auth.CreateSession(ctx, db, store.SessionChild, childID, now)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+	sess, err := auth.LookupSession(ctx, db, token, store.SessionChild, now)
+	if err != nil {
+		t.Fatalf("LookupSession() error = %v", err)
+	}
+
+	if err := auth.RequireParent(sess, now); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("RequireParent() on a child session: error = %v, want ErrNotFound", err)
+	}
+}
+
+// TestParentCookieCarriesHostPrefixAndStrictSameSite is encre-qpx.6's M3
+// regression test: the parent cookie must carry the __Host- prefix and
+// SameSite=Strict; the child cookie is unaffected (still Lax, no prefix).
+func TestParentCookieCarriesHostPrefixAndStrictSameSite(t *testing.T) {
+	if !strings.HasPrefix(auth.CookieParent, "__Host-") {
+		t.Errorf("CookieParent = %q, want a __Host- prefix", auth.CookieParent)
+	}
+
+	rec := httptest.NewRecorder()
+	auth.SetSessionCookie(rec, auth.CookieParent, "tok-value", auth.ParentSessionTTL)
+	c := rec.Result().Cookies()[0]
+	if c.SameSite != http.SameSiteStrictMode {
+		t.Errorf("parent cookie SameSite = %v, want Strict", c.SameSite)
+	}
+	if !c.Secure {
+		t.Error("parent cookie Secure = false, want true (required for __Host-)")
+	}
+	if c.Path != "/" {
+		t.Errorf("parent cookie Path = %q, want \"/\" (required for __Host-)", c.Path)
+	}
+
+	rec2 := httptest.NewRecorder()
+	auth.SetSessionCookie(rec2, auth.CookieChild, "tok-value", auth.ChildSessionTTL)
+	c2 := rec2.Result().Cookies()[0]
+	if c2.SameSite != http.SameSiteLaxMode {
+		t.Errorf("child cookie SameSite = %v, want Lax (unchanged)", c2.SameSite)
+	}
+}
+
+// TestLogoutDeletesSessionAndClearsCookie is encre-qpx.8's regression test
+// (L7): Logout must both remove the session server-side and clear the
+// cookie — a handler that only cleared the cookie would leave a captured
+// token valid for days.
+func TestLogoutDeletesSessionAndClearsCookie(t *testing.T) {
+	db := openTestDB(t)
+	ctx := t.Context()
+	parentID := seedParent(t, db, "parent1")
+	now := time.Unix(1_700_000_000, 0).UTC()
+
+	token, err := auth.CreateSession(ctx, db, store.SessionParent, parentID, now)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/parent/logout", nil)
+	req.AddCookie(&http.Cookie{Name: auth.CookieParent, Value: token})
+	rec := httptest.NewRecorder()
+
+	if err := auth.Logout(ctx, db, rec, req, auth.CookieParent); err != nil {
+		t.Fatalf("Logout() error = %v", err)
+	}
+
+	if _, err := auth.LookupSession(ctx, db, token, store.SessionParent, now); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("LookupSession() after Logout(): error = %v, want ErrNotFound (session deleted)", err)
+	}
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].MaxAge >= 0 {
+		t.Errorf("Logout() cookies = %+v, want exactly one cookie with a negative MaxAge", cookies)
+	}
+}
+
+// TestLogoutWithNoCookieIsIdempotent checks that Logout does not error when
+// there is no cookie to read at all — mirroring DeleteSession's own
+// idempotence.
+func TestLogoutWithNoCookieIsIdempotent(t *testing.T) {
+	db := openTestDB(t)
+	req := httptest.NewRequest(http.MethodPost, "/parent/logout", nil)
+	rec := httptest.NewRecorder()
+
+	if err := auth.Logout(t.Context(), db, rec, req, auth.CookieParent); err != nil {
+		t.Errorf("Logout() with no cookie: error = %v, want nil", err)
+	}
+}

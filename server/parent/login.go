@@ -52,7 +52,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	totpCode := r.PostFormValue("totp")
 
 	now := s.now()
-	parentID, err := auth.LoginParent(r.Context(), s.db, email, password)
+	parentID, err := auth.LoginParent(r.Context(), s.db, email, password, s.pep)
 	if err != nil {
 		s.rejectLogin(w, r, err)
 		return
@@ -75,7 +75,7 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 		s.logInternalError(w, r, "looking up freshly created session", err)
 		return
 	}
-	if err := auth.VerifyParentTOTPForSession(r.Context(), s.db, sess, totpCode, now); err != nil {
+	if err := auth.VerifyParentTOTPForSession(r.Context(), s.db, sess, totpCode, now, s.pep); err != nil {
 		if delErr := auth.DeleteSession(r.Context(), s.db, token); delErr != nil {
 			slogRenderError(r, "cleaning up rejected login session", delErr)
 		}
@@ -97,14 +97,11 @@ func (s *Server) rejectLogin(w http.ResponseWriter, r *http.Request, err error) 
 	s.renderLogin(w, r, "identifiants ou code invalides")
 }
 
-// handleLogout deletes the session and clears the cookie.
+// handleLogout ends the session server-side and clears the cookie (encre-qpx.8, L7).
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(auth.CookieParent); err == nil {
-		if err := auth.DeleteSession(r.Context(), s.db, cookie.Value); err != nil {
-			slogRenderError(r, "logout", err)
-		}
+	if err := auth.Logout(r.Context(), s.db, w, r, auth.CookieParent); err != nil {
+		slogRenderError(r, "logout", err)
 	}
-	auth.ClearSessionCookie(w, auth.CookieParent)
 	http.Redirect(w, r, "/parent/login", http.StatusSeeOther)
 }
 

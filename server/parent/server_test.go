@@ -1,6 +1,7 @@
 package parent_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -19,6 +20,18 @@ import (
 	"github.com/oioio-space/encre/server/store"
 )
 
+// testPepper builds a fixed-key [auth.Pepper], shared by every helper in
+// this file so a parent seeded through [seedParentWithID] and the
+// [parent.Server] built by [newTestServer] always agree on it.
+func testPepper(t *testing.T) *auth.Pepper {
+	t.Helper()
+	pep, err := auth.NewPepper("test", bytes.Repeat([]byte("k"), 32))
+	if err != nil {
+		t.Fatalf("auth.NewPepper() error = %v", err)
+	}
+	return pep
+}
+
 // testParent is a parent account seeded directly through the store, with
 // TOTP already enrolled, so tests can log in without going through a signup
 // flow this bead does not own.
@@ -34,7 +47,8 @@ func seedParent(t *testing.T, db *store.Store) testParent {
 func seedParentWithID(t *testing.T, db *store.Store, id, email string) testParent {
 	t.Helper()
 
-	hash, err := auth.HashPassword("correct horse battery staple")
+	pep := testPepper(t)
+	hash, err := auth.HashPassword("correct horse battery staple", pep)
 	if err != nil {
 		t.Fatalf("HashPassword: %v", err)
 	}
@@ -42,12 +56,16 @@ func seedParentWithID(t *testing.T, db *store.Store, id, email string) testParen
 	if err != nil {
 		t.Fatalf("EnrollTOTP: %v", err)
 	}
+	sealed, err := pep.Encrypt([]byte(enrollment.Secret))
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
 
 	p := &store.Parent{
 		ID:         id,
 		Email:      email,
 		PassHash:   []byte(hash),
-		TOTPSecret: []byte(enrollment.Secret),
+		TOTPSecret: sealed,
 		CreatedAt:  time.Now(),
 	}
 	if err := db.CreateParent(t.Context(), p); err != nil {
@@ -77,7 +95,7 @@ func newTestServer(t *testing.T) (*httptest.Server, *store.Store, *http.Client) 
 	}
 	t.Cleanup(func() { _ = db.Close() })
 
-	srv, err := parent.NewServer(db)
+	srv, err := parent.NewServer(db, testPepper(t))
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
@@ -235,7 +253,7 @@ func TestCreateChildRequiresCSRFToken(t *testing.T) {
 	tp := seedParent(t, db)
 	login(t, ts, client, tp)
 
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}}
 	resp, _ := postForm(t, client, ts.URL+"/parent/children", form, true)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("POST /parent/children without csrf_token: got status %d, want %d", resp.StatusCode, http.StatusForbidden)
@@ -258,7 +276,7 @@ func TestCreateChildRejectsCrossSiteRequest(t *testing.T) {
 	_, body := get(t, client, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
 
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	resp, _ := postForm(t, client, ts.URL+"/parent/children", form, false)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("POST /parent/children with no same-origin signal: got status %d, want %d", resp.StatusCode, http.StatusForbidden)
@@ -284,7 +302,7 @@ func TestCreateChildWithAnotherSessionsCSRFTokenIsRejected(t *testing.T) {
 	_, bodyB := get(t, clientB, ts.URL+"/parent/children")
 	foreignCSRF := extractCSRF(t, bodyB)
 
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {foreignCSRF}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {foreignCSRF}}
 	resp, _ := postForm(t, clientA, ts.URL+"/parent/children", form, true)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("POST /parent/children with another session's csrf token: got status %d, want %d", resp.StatusCode, http.StatusForbidden)
@@ -307,7 +325,7 @@ func TestChildCreationDefaultsSosiesOff(t *testing.T) {
 	_, body := get(t, client, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
 
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST /parent/children: got status %d, want 200; body: %s", resp.StatusCode, respBody)
@@ -344,7 +362,7 @@ func TestDailyLimitIsRespectedAndModifiable(t *testing.T) {
 
 	_, body := get(t, client, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	if resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true); resp.StatusCode != http.StatusOK {
 		t.Fatalf("creating child: got status %d; body: %s", resp.StatusCode, respBody)
 	}
@@ -399,7 +417,7 @@ func TestPseudoWithScriptTagIsEscaped(t *testing.T) {
 	csrfToken := extractCSRF(t, body)
 
 	const malicious = `<script>x</script>` // 19 runes, under pseudoMaxLen
-	form := url.Values{"pseudo": {malicious}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {malicious}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("creating child: got status %d; body: %s", resp.StatusCode, respBody)
@@ -420,7 +438,7 @@ func TestAZERTYIsNotOfferedPlainlyInPortrait(t *testing.T) {
 
 	_, body := get(t, client, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	if resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true); resp.StatusCode != http.StatusOK {
 		t.Fatalf("creating child: got status %d; body: %s", resp.StatusCode, respBody)
 	}
@@ -526,7 +544,7 @@ func TestSettingsRejectsInvalidMinutesPerDay(t *testing.T) {
 
 	_, body := get(t, client, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	if resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true); resp.StatusCode != http.StatusOK {
 		t.Fatalf("creating child: got status %d; body: %s", resp.StatusCode, respBody)
 	}
@@ -574,7 +592,7 @@ func TestSettingsForAnotherParentsChildIsRejected(t *testing.T) {
 
 	_, body := get(t, clientA, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	if resp, respBody := postForm(t, clientA, ts.URL+"/parent/children", form, true); resp.StatusCode != http.StatusOK {
 		t.Fatalf("creating child: got status %d; body: %s", resp.StatusCode, respBody)
 	}
@@ -616,7 +634,7 @@ func TestCreateChildRejectsEmptyPseudo(t *testing.T) {
 	_, body := get(t, client, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
 
-	form := url.Values{"pseudo": {""}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {""}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true)
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("creating a child with an empty pseudo: got status %d, want 200 (form redisplayed)", resp.StatusCode)
@@ -660,6 +678,37 @@ func TestCreateChildRejectsInvalidPattern(t *testing.T) {
 	}
 }
 
+// TestCreateChildRejectsWeakPattern is encre-qpx.4's blacklist requirement:
+// a pattern of the right length is still rejected if it is one of the
+// handful of shapes a class of seven-year-olds converges on.
+func TestCreateChildRejectsWeakPattern(t *testing.T) {
+	ts, db, client := newTestServer(t)
+	tp := seedParent(t, db)
+	login(t, ts, client, tp)
+
+	for _, weak := range []string{"11111", "12345", "54321", "13179"} {
+		_, body := get(t, client, ts.URL+"/parent/children")
+		csrfToken := extractCSRF(t, body)
+
+		form := url.Values{"pseudo": {"Timéo"}, "pattern": {weak}, "csrf_token": {csrfToken}}
+		resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true)
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("creating a child with weak pattern %q: got status %d, want 200 (form redisplayed)", weak, resp.StatusCode)
+		}
+		if !strings.Contains(respBody, "trop facile à deviner") {
+			t.Errorf("creating a child with weak pattern %q: body missing the validation message", weak)
+		}
+	}
+
+	children, err := db.ChildrenOfParent(t.Context(), tp.id)
+	if err != nil {
+		t.Fatalf("ChildrenOfParent: %v", err)
+	}
+	if len(children) != 0 {
+		t.Errorf("creating children with weak patterns created %d children, want 0", len(children))
+	}
+}
+
 func TestSettingsPostRequiresCSRFToken(t *testing.T) {
 	ts, db, client := newTestServer(t)
 	tp := seedParent(t, db)
@@ -667,7 +716,7 @@ func TestSettingsPostRequiresCSRFToken(t *testing.T) {
 
 	_, body := get(t, client, ts.URL+"/parent/children")
 	csrfToken := extractCSRF(t, body)
-	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"1234"}, "csrf_token": {csrfToken}}
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
 	if resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true); resp.StatusCode != http.StatusOK {
 		t.Fatalf("creating child: got status %d; body: %s", resp.StatusCode, respBody)
 	}

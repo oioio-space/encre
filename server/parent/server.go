@@ -16,6 +16,7 @@ import (
 // [NewServer]; its zero value is not usable.
 type Server struct {
 	db   *store.Store
+	pep  *auth.Pepper
 	tmpl *template.Template
 	mux  *http.ServeMux
 	csrf *csrfSigner
@@ -29,8 +30,11 @@ type Server struct {
 }
 
 // NewServer builds a [Server] backed by db. db is not owned by the returned
-// Server — the caller opened it and must close it.
-func NewServer(db *store.Store) (*Server, error) {
+// Server — the caller opened it and must close it. pep must not be nil —
+// see [auth.ErrPepperRequired] — it is what [auth.HashPattern] and
+// [auth.LoginParent] need to hash and verify anything this package persists
+// or checks against a stored secret.
+func NewServer(db *store.Store, pep *auth.Pepper) (*Server, error) {
 	tmpl, err := parseTemplates()
 	if err != nil {
 		return nil, err
@@ -42,6 +46,7 @@ func NewServer(db *store.Store) (*Server, error) {
 
 	s := &Server{
 		db:           db,
+		pep:          pep,
 		tmpl:         tmpl,
 		csrf:         csrf,
 		loginLimiter: auth.NewLimiter(auth.LoginRateLimit, nil),

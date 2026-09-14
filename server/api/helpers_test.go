@@ -17,6 +17,19 @@ import (
 	"github.com/oioio-space/encre/server/store"
 )
 
+// testPepper returns a [auth.Pepper] with a fixed, test-only key: good
+// enough to exercise every peppering and TOTP-encryption path this package's
+// tests go through, never anything a production deployment would load.
+func testPepper(t *testing.T) *auth.Pepper {
+	t.Helper()
+	key := bytes.Repeat([]byte("k"), 32)
+	pep, err := auth.NewPepper("test", key)
+	if err != nil {
+		t.Fatalf("auth.NewPepper() error = %v", err)
+	}
+	return pep
+}
+
 // openTestDB opens a fresh in-memory store, closed automatically when t ends.
 func openTestDB(t *testing.T) *store.Store {
 	t.Helper()
@@ -46,7 +59,7 @@ func newTestServer(t *testing.T) *testServer {
 	t.Helper()
 	db := openTestDB(t)
 	now := time.Unix(1_700_000_000, 0).UTC()
-	srv := api.New(db, engine.DefaultConfig(), func() time.Time { return now })
+	srv := api.New(db, engine.DefaultConfig(), func() time.Time { return now }, testPepper(t))
 	hs := httptest.NewServer(srv.Handler())
 	t.Cleanup(hs.Close)
 
@@ -124,10 +137,15 @@ func decodeBody[T any](t *testing.T, resp *http.Response) T {
 	return v
 }
 
-// seedParent inserts a parent with the given ID and a derived email.
+// seedParent inserts a parent with the given ID, a derived email, and a
+// derived family code (encre-qpx.5) so tests can drive the family-scoped
+// child login endpoints without a separate signup step.
 func seedParent(t *testing.T, db *store.Store, id string) {
 	t.Helper()
-	p := &store.Parent{ID: id, Email: id + "@example.com", PassHash: []byte("h"), CreatedAt: time.Now()}
+	p := &store.Parent{
+		ID: id, Email: id + "@example.com", PassHash: []byte("h"),
+		FamilyCode: id + "-family", CreatedAt: time.Now(),
+	}
 	if err := db.CreateParent(t.Context(), p); err != nil {
 		t.Fatalf("CreateParent() error = %v", err)
 	}
@@ -138,7 +156,7 @@ func seedParent(t *testing.T, db *store.Store, id string) {
 func seedChild(t *testing.T, db *store.Store, id, pseudo, pattern string) {
 	t.Helper()
 	seedParent(t, db, id+"-parent")
-	hash, err := auth.HashPattern(pattern)
+	hash, err := auth.HashPattern(pattern, testPepper(t))
 	if err != nil {
 		t.Fatalf("HashPattern() error = %v", err)
 	}
@@ -182,9 +200,25 @@ func seedValidatedWord(t *testing.T, db *store.Store, childID, itemID, text stri
 
 // loginChild logs in as pseudo/pattern through the real /child/login
 // endpoint, leaving the session cookie on ts's client for subsequent calls.
+// It looks pseudo's child ID and family code up directly (a test-only
+// shortcut standing in for the family-scoped login page picking an avatar
+// from [Server.handleFamilyChildren]'s list) so every existing call site
+// keeps addressing a child by the pseudo it seeded, rather than needing to
+// thread a child ID and family code through as well.
 func loginChild(t *testing.T, ts *testServer, pseudo, pattern string) {
 	t.Helper()
-	resp := ts.post(t, "/api/v1/child/login", map[string]string{"pseudo": pseudo, "pattern": pattern})
+	var childID, familyCode string
+	err := ts.DB.DB().QueryRowContext(t.Context(), `
+		SELECT children.id, parents.family_code
+		FROM children JOIN parents ON parents.id = children.parent_id
+		WHERE children.pseudo = ?`, pseudo).Scan(&childID, &familyCode)
+	if err != nil {
+		t.Fatalf("looking up seeded child %q: %v", pseudo, err)
+	}
+
+	resp := ts.post(t, "/api/v1/child/login", map[string]string{
+		"familyCode": familyCode, "childID": childID, "pattern": pattern,
+	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("child/login status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}

@@ -118,7 +118,7 @@ func TestPurgeExpiredSessions(t *testing.T) {
 		t.Fatalf("CreateSession(fresh) error = %v", err)
 	}
 
-	if err := db.PurgeExpiredSessions(ctx); err != nil {
+	if err := db.PurgeExpiredSessions(ctx, time.Now()); err != nil {
 		t.Fatalf("PurgeExpiredSessions() error = %v", err)
 	}
 
@@ -127,6 +127,40 @@ func TestPurgeExpiredSessions(t *testing.T) {
 	}
 	if _, err := db.Session(ctx, "fresh"); err != nil {
 		t.Errorf("Session(fresh) after purge: error = %v, want nil", err)
+	}
+}
+
+func TestDeleteSessionsForSubject(t *testing.T) {
+	db := openTestStore(t)
+	ctx := t.Context()
+	childID := seedChild(t, db, "child1")
+
+	a := &store.Session{Token: "a", Kind: store.SessionChild, SubjectID: childID, ExpiresAt: time.Now().Add(time.Hour)}
+	b := &store.Session{Token: "b", Kind: store.SessionChild, SubjectID: childID, ExpiresAt: time.Now().Add(time.Hour)}
+	other := seedChild(t, db, "child2")
+	c := &store.Session{Token: "c", Kind: store.SessionChild, SubjectID: other, ExpiresAt: time.Now().Add(time.Hour)}
+	for _, s := range []*store.Session{a, b, c} {
+		if err := db.CreateSession(ctx, s); err != nil {
+			t.Fatalf("CreateSession(%s) error = %v", s.Token, err)
+		}
+	}
+
+	n, err := db.DeleteSessionsForSubject(ctx, childID)
+	if err != nil {
+		t.Fatalf("DeleteSessionsForSubject() error = %v", err)
+	}
+	if n != 2 {
+		t.Errorf("DeleteSessionsForSubject() = %d, want 2", n)
+	}
+
+	if _, err := db.Session(ctx, "a"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("Session(a) after DeleteSessionsForSubject: error = %v, want ErrNotFound", err)
+	}
+	if _, err := db.Session(ctx, "b"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("Session(b) after DeleteSessionsForSubject: error = %v, want ErrNotFound", err)
+	}
+	if _, err := db.Session(ctx, "c"); err != nil {
+		t.Errorf("Session(c, a different subject) after DeleteSessionsForSubject: error = %v, want nil", err)
 	}
 }
 
@@ -170,7 +204,7 @@ func TestPurgeExpiredSessionsFailsOnClosedDB(t *testing.T) {
 		t.Fatalf("closing underlying db: %v", err)
 	}
 
-	if err := db.PurgeExpiredSessions(t.Context()); err == nil {
+	if err := db.PurgeExpiredSessions(t.Context(), time.Now()); err == nil {
 		t.Error("PurgeExpiredSessions() on a closed database: want error, got nil")
 	}
 }

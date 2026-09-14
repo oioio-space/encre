@@ -1,11 +1,25 @@
 package auth_test
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
+	"github.com/oioio-space/encre/server/auth"
 	"github.com/oioio-space/encre/server/store"
 )
+
+// testPepper builds a fixed-key [auth.Pepper] good enough to exercise every
+// peppering and TOTP-encryption path in this package's tests — never
+// anything a production deployment would load.
+func testPepper(t *testing.T) *auth.Pepper {
+	t.Helper()
+	pep, err := auth.NewPepper("test", bytes.Repeat([]byte("k"), 32))
+	if err != nil {
+		t.Fatalf("auth.NewPepper() error = %v", err)
+	}
+	return pep
+}
 
 // openTestDB opens a fresh in-memory store, closed automatically when t ends.
 func openTestDB(t *testing.T) *store.Store {

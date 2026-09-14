@@ -1,9 +1,22 @@
 package auth
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 )
+
+// testPepperInternal builds a fixed-key [Pepper] for tests in this
+// (internal, package auth) file — the auth_test package's own testPepper
+// helper is not visible here.
+func testPepperInternal(t *testing.T) *Pepper {
+	t.Helper()
+	pep, err := NewPepper("test", bytes.Repeat([]byte("k"), pepperKeyBytes))
+	if err != nil {
+		t.Fatalf("NewPepper() error = %v", err)
+	}
+	return pep
+}
 
 // TestArgon2SemSaturationRejects fills argon2Sem to capacity by hand and
 // checks that HashPassword fails fast with ErrTooManyPasswordChecks instead
@@ -21,17 +34,18 @@ func TestArgon2SemSaturationRejects(t *testing.T) {
 		t.Fatal("argon2Sem had no capacity to acquire even once")
 	}
 
-	if _, err := HashPassword("anything"); !errors.Is(err, ErrTooManyPasswordChecks) {
+	pep := testPepperInternal(t)
+	if _, err := HashPassword("anything", pep); !errors.Is(err, ErrTooManyPasswordChecks) {
 		t.Errorf("HashPassword() under a saturated argon2Sem: error = %v, want ErrTooManyPasswordChecks", err)
 	}
-	if _, err := VerifyPassword("anything", "$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA"); !errors.Is(err, ErrTooManyPasswordChecks) {
+	if _, err := VerifyPassword("anything", "test:$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA", pep); !errors.Is(err, ErrTooManyPasswordChecks) {
 		t.Errorf("VerifyPassword() under a saturated argon2Sem: error = %v, want ErrTooManyPasswordChecks", err)
 	}
 
 	// Release one slot and confirm normal operation resumes.
 	argon2Sem.Release(1)
 	slots--
-	if _, err := HashPassword("anything"); err != nil {
+	if _, err := HashPassword("anything", pep); err != nil {
 		t.Errorf("HashPassword() after releasing a slot: error = %v, want nil", err)
 	}
 }

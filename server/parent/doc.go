@@ -15,18 +15,25 @@
 //	if err != nil {
 //		log.Fatal(err)
 //	}
-//	srv, err := parent.NewServer(db)
+//	pep, err := auth.LoadPepper()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//	srv, err := parent.NewServer(db, pep)
 //	if err != nil {
 //		log.Fatal(err)
 //	}
 //	http.ListenAndServe(":8443", srv)
 //
 // Every route under /parent/ except the login page itself requires a
-// [github.com/oioio-space/encre/server/store.SessionParent] session — never
-// a child session, even one replayed under the parent cookie name — and
-// every mutating route additionally requires a valid CSRF token bound to
-// that session (see csrf.go) and an Origin or Sec-Fetch-Site header that
-// names this server, rejecting the request by default when both are
-// missing. [Server] never writes an internal error's text to a response; see
-// renderError.
+// session [github.com/oioio-space/encre/server/auth.RequireParent] accepts:
+// a [github.com/oioio-space/encre/server/store.SessionParent] session — never
+// a child session, even one replayed under the parent cookie name — with a
+// TOTP check still fresh right now, re-checked on every request rather than
+// only at login, per ENCRE_04 §7's "session + TOTP frais" covering the whole
+// route block. Every mutating route additionally requires a valid CSRF
+// token bound to that session (see csrf.go) and an Origin or Sec-Fetch-Site
+// header that names this server, rejecting the request by default when both
+// are missing. [Server] never writes an internal error's text to a
+// response; see renderError.
 package parent

@@ -79,9 +79,36 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	return nil
 }
 
-// PurgeExpiredSessions deletes every session whose expiry has passed.
-func (s *Store) PurgeExpiredSessions(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at < ?`, time.Now().Unix())
+// DeleteSessionsForSubject removes every session belonging to subjectID,
+// parent or child, regardless of token. It is what encre-qpx.6 requires a
+// parent's password change, TOTP re-enrollment or account deletion to call:
+// none of those actions otherwise has any effect on a session an attacker
+// already holds — sessions.subject_id carries no foreign key (it names a row
+// in either parents or children depending on kind, so it cannot), so nothing
+// cascades here without this call. It returns the number of sessions
+// removed, mainly so a caller like account deletion can assert something was
+// actually revoked in its own tests.
+func (s *Store) DeleteSessionsForSubject(ctx context.Context, subjectID string) (int64, error) {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE subject_id = ?`, subjectID)
+	if err != nil {
+		return 0, fmt.Errorf("deleting sessions for subject: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("checking rows affected: %w", err)
+	}
+	return n, nil
+}
+
+// PurgeExpiredSessions deletes every session whose expiry is before now.
+// Nothing in this codebase calls it on a schedule yet — see
+// [github.com/oioio-space/encre/server/auth.PurgeExpiredTOTPUses]'s doc
+// comment for the same caveat about its own table — so a deployment's
+// startup or a periodic job must call it explicitly, or expired sessions
+// (harmless — [LookupSession] already rejects them by [Session.ExpiresAt] —
+// but unbounded) accumulate forever (encre-qpx.8, L6).
+func (s *Store) PurgeExpiredSessions(ctx context.Context, now time.Time) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at < ?`, now.Unix())
 	if err != nil {
 		return fmt.Errorf("purging expired sessions: %w", err)
 	}

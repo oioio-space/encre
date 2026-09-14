@@ -21,12 +21,16 @@ const (
 )
 
 // requireParentSession wraps next so it only ever runs for a request
-// carrying a valid [github.com/oioio-space/encre/server/store.SessionParent]
-// session. A missing cookie, an expired session, or a child session
-// presented under the parent cookie name are all rejected the same way —
+// carrying a session [auth.RequireParent] accepts — a valid
+// [github.com/oioio-space/encre/server/store.SessionParent] session with a
+// fresh TOTP check (encre-qpx.6, M5). A missing cookie, an expired session,
+// a child session presented under the parent cookie name, and a parent
+// session whose TOTP freshness has lapsed are all rejected the same way —
 // redirected to the login page — never distinguished in the response: see
 // [auth.LookupSession]'s doc comment for why a child token must never
-// resolve a parent page.
+// resolve a parent page, and [auth.RequireParent]'s for why freshness is
+// checked on every route, not only the ones this package used to single out
+// as sensitive.
 //
 // On success it stores the session and this request's CSRF token
 // (csrfSigner.Token of the session's raw cookie value) in the request
@@ -40,6 +44,10 @@ func (s *Server) requireParentSession(next http.Handler) http.Handler {
 		}
 		sess, err := auth.LookupSession(r.Context(), s.db, cookie.Value, store.SessionParent, s.now())
 		if err != nil {
+			s.redirectToLogin(w, r)
+			return
+		}
+		if err := auth.RequireParent(sess, s.now()); err != nil {
 			s.redirectToLogin(w, r)
 			return
 		}

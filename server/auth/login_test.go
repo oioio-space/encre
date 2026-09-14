@@ -11,9 +11,10 @@ import (
 
 func TestLoginParent(t *testing.T) {
 	db := openTestDB(t)
+	pep := testPepper(t)
 	ctx := t.Context()
 
-	hash, err := auth.HashPassword("s3cret!")
+	hash, err := auth.HashPassword("s3cret!", pep)
 	if err != nil {
 		t.Fatalf("HashPassword() error = %v", err)
 	}
@@ -22,7 +23,7 @@ func TestLoginParent(t *testing.T) {
 		t.Fatalf("CreateParent() error = %v", err)
 	}
 
-	id, err := auth.LoginParent(ctx, db, "parent@example.com", "s3cret!")
+	id, err := auth.LoginParent(ctx, db, "parent@example.com", "s3cret!", pep)
 	if err != nil {
 		t.Fatalf("LoginParent() error = %v", err)
 	}
@@ -33,9 +34,10 @@ func TestLoginParent(t *testing.T) {
 
 func TestLoginParentUnknownEmailAndWrongPasswordAreIndistinguishable(t *testing.T) {
 	db := openTestDB(t)
+	pep := testPepper(t)
 	ctx := t.Context()
 
-	hash, err := auth.HashPassword("s3cret!")
+	hash, err := auth.HashPassword("s3cret!", pep)
 	if err != nil {
 		t.Fatalf("HashPassword() error = %v", err)
 	}
@@ -44,8 +46,8 @@ func TestLoginParentUnknownEmailAndWrongPasswordAreIndistinguishable(t *testing.
 		t.Fatalf("CreateParent() error = %v", err)
 	}
 
-	_, errUnknown := auth.LoginParent(ctx, db, "nobody@example.com", "whatever")
-	_, errWrong := auth.LoginParent(ctx, db, "parent@example.com", "wrong password")
+	_, errUnknown := auth.LoginParent(ctx, db, "nobody@example.com", "whatever", pep)
+	_, errWrong := auth.LoginParent(ctx, db, "parent@example.com", "wrong password", pep)
 
 	if !errors.Is(errUnknown, auth.ErrInvalidCredentials) {
 		t.Errorf("LoginParent(unknown email) error = %v, want ErrInvalidCredentials", errUnknown)
@@ -67,9 +69,10 @@ func TestLoginParentUnknownEmailAndWrongPasswordAreIndistinguishable(t *testing.
 // dependency count.
 func TestLoginParentTimingDoesNotLeakWhichEmailExists(t *testing.T) {
 	db := openTestDB(t)
+	pep := testPepper(t)
 	ctx := t.Context()
 
-	hash, err := auth.HashPassword("s3cret!")
+	hash, err := auth.HashPassword("s3cret!", pep)
 	if err != nil {
 		t.Fatalf("HashPassword() error = %v", err)
 	}
@@ -82,11 +85,11 @@ func TestLoginParentTimingDoesNotLeakWhichEmailExists(t *testing.T) {
 	var unknownTotal, wrongTotal time.Duration
 	for range runs {
 		start := time.Now()
-		_, _ = auth.LoginParent(ctx, db, "nobody@example.com", "whatever")
+		_, _ = auth.LoginParent(ctx, db, "nobody@example.com", "whatever", pep)
 		unknownTotal += time.Since(start)
 
 		start = time.Now()
-		_, _ = auth.LoginParent(ctx, db, "parent@example.com", "wrong password")
+		_, _ = auth.LoginParent(ctx, db, "parent@example.com", "wrong password", pep)
 		wrongTotal += time.Since(start)
 	}
 
@@ -101,9 +104,10 @@ func TestLoginParentTimingDoesNotLeakWhichEmailExists(t *testing.T) {
 
 func TestLoginChild(t *testing.T) {
 	db := openTestDB(t)
+	pep := testPepper(t)
 	ctx := t.Context()
 
-	patternHash, err := auth.HashPattern("1379")
+	patternHash, err := auth.HashPattern("1379", pep)
 	if err != nil {
 		t.Fatalf("HashPattern() error = %v", err)
 	}
@@ -113,7 +117,7 @@ func TestLoginChild(t *testing.T) {
 		t.Fatalf("CreateChild() error = %v", err)
 	}
 
-	id, err := auth.LoginChild(ctx, db, "Mona", "1379")
+	id, err := auth.LoginChild(ctx, db, "Mona", "1379", pep)
 	if err != nil {
 		t.Fatalf("LoginChild() error = %v", err)
 	}
@@ -124,9 +128,10 @@ func TestLoginChild(t *testing.T) {
 
 func TestLoginChildWrongPattern(t *testing.T) {
 	db := openTestDB(t)
+	pep := testPepper(t)
 	ctx := t.Context()
 
-	patternHash, err := auth.HashPattern("1379")
+	patternHash, err := auth.HashPattern("1379", pep)
 	if err != nil {
 		t.Fatalf("HashPattern() error = %v", err)
 	}
@@ -136,7 +141,7 @@ func TestLoginChildWrongPattern(t *testing.T) {
 		t.Fatalf("CreateChild() error = %v", err)
 	}
 
-	_, err = auth.LoginChild(ctx, db, "Mona", "0000")
+	_, err = auth.LoginChild(ctx, db, "Mona", "0000", pep)
 	if !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("LoginChild() with the wrong pattern: error = %v, want ErrInvalidCredentials", err)
 	}
@@ -144,7 +149,8 @@ func TestLoginChildWrongPattern(t *testing.T) {
 
 func TestLoginChildUnknownPseudo(t *testing.T) {
 	db := openTestDB(t)
-	_, err := auth.LoginChild(t.Context(), db, "Nobody", "1234")
+	pep := testPepper(t)
+	_, err := auth.LoginChild(t.Context(), db, "Nobody", "1234", pep)
 	if !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("LoginChild() with an unknown pseudo: error = %v, want ErrInvalidCredentials", err)
 	}
@@ -155,16 +161,17 @@ func TestLoginChildUnknownPseudo(t *testing.T) {
 // by their own pattern.
 func TestLoginChildDisambiguatesSharedPseudo(t *testing.T) {
 	db := openTestDB(t)
+	pep := testPepper(t)
 	ctx := t.Context()
 
 	seedParent(t, db, "parent1")
 	seedParent(t, db, "parent2")
 
-	hash1, err := auth.HashPattern("1111")
+	hash1, err := auth.HashPattern("1111", pep)
 	if err != nil {
 		t.Fatalf("HashPattern() error = %v", err)
 	}
-	hash2, err := auth.HashPattern("2222")
+	hash2, err := auth.HashPattern("2222", pep)
 	if err != nil {
 		t.Fatalf("HashPattern() error = %v", err)
 	}
@@ -177,7 +184,7 @@ func TestLoginChildDisambiguatesSharedPseudo(t *testing.T) {
 		t.Fatalf("CreateChild(c2) error = %v", err)
 	}
 
-	id, err := auth.LoginChild(ctx, db, "Mona", "2222")
+	id, err := auth.LoginChild(ctx, db, "Mona", "2222", pep)
 	if err != nil {
 		t.Fatalf("LoginChild() error = %v", err)
 	}
@@ -194,12 +201,13 @@ func TestLoginChildDisambiguatesSharedPseudo(t *testing.T) {
 // rather than pick whichever row the query returned last.
 func TestLoginChildAmbiguousMatchFailsClosed(t *testing.T) {
 	db := openTestDB(t)
+	pep := testPepper(t)
 	ctx := t.Context()
 
 	seedParent(t, db, "parent1")
 	seedParent(t, db, "parent2")
 
-	hash, err := auth.HashPattern("1379")
+	hash, err := auth.HashPattern("1379", pep)
 	if err != nil {
 		t.Fatalf("HashPattern() error = %v", err)
 	}
@@ -212,7 +220,7 @@ func TestLoginChildAmbiguousMatchFailsClosed(t *testing.T) {
 		t.Fatalf("CreateChild(c2) error = %v", err)
 	}
 
-	_, err = auth.LoginChild(ctx, db, "Lea", "1379")
+	_, err = auth.LoginChild(ctx, db, "Lea", "1379", pep)
 	if !errors.Is(err, auth.ErrInvalidCredentials) {
 		t.Errorf("LoginChild() with an ambiguous (pseudo, pattern) match: error = %v, want ErrInvalidCredentials", err)
 	}

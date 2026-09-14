@@ -72,10 +72,17 @@ func acquireArgon2Slot() (release func(), err error) {
 	return func() { argon2Sem.Release(1) }, nil
 }
 
-// HashPassword returns the argon2id-PHC encoding of password at
-// [PasswordParams], salted with a fresh, cryptographically random salt: two
-// calls with the same password never return the same string.
-func HashPassword(password string) (string, error) {
+// HashPassword returns the peppered argon2id hash of password at
+// [PasswordParams] (see [Pepper.PepperHash]), salted with a fresh,
+// cryptographically random salt: two calls with the same password never
+// return the same string. pep must not be nil — see [ErrPepperRequired] —
+// so a stolen SQLite file (ENCRE_04 §12's Litestream replica, in
+// particular) never carries a hash that offline guessing can test without
+// also holding pep's key.
+func HashPassword(password string, pep *Pepper) (string, error) {
+	if pep == nil {
+		return "", ErrPepperRequired
+	}
 	release, err := acquireArgon2Slot()
 	if err != nil {
 		return "", err
@@ -86,29 +93,43 @@ func HashPassword(password string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hashing password: %w", err)
 	}
-	return hash, nil
+	peppered, err := pep.PepperHash(hash)
+	if err != nil {
+		return "", fmt.Errorf("peppering password hash: %w", err)
+	}
+	return peppered, nil
 }
 
-// VerifyPassword reports whether password matches hash, comparing in
-// constant time. It returns an error only for a malformed hash or a
-// saturated [argon2Sem] ([ErrTooManyPasswordChecks]), never for a mismatch.
-func VerifyPassword(password, hash string) (bool, error) {
+// VerifyPassword reports whether password matches hash — a value
+// [HashPassword] returned, under the same pep — comparing in constant time.
+// It returns an error only for a malformed hash, an unknown pepper key
+// version, a nil pep, or a saturated [argon2Sem]
+// ([ErrTooManyPasswordChecks]), never for a mismatch.
+func VerifyPassword(password, hash string, pep *Pepper) (bool, error) {
+	if pep == nil {
+		return false, ErrPepperRequired
+	}
 	release, err := acquireArgon2Slot()
 	if err != nil {
 		return false, err
 	}
 	defer release()
 
-	ok, err := argon2id.ComparePasswordAndHash(password, hash)
+	ok, err := pep.VerifyHash(password, hash)
 	if err != nil {
 		return false, fmt.Errorf("verifying password: %w", err)
 	}
 	return ok, nil
 }
 
-// HashPattern returns the argon2id-PHC encoding of pattern at
-// [PatternParams], salted with a fresh, cryptographically random salt.
-func HashPattern(pattern string) (string, error) {
+// HashPattern returns the peppered argon2id hash of pattern at
+// [PatternParams] (see [Pepper.PepperHash]), salted with a fresh,
+// cryptographically random salt. pep must not be nil — see
+// [ErrPepperRequired].
+func HashPattern(pattern string, pep *Pepper) (string, error) {
+	if pep == nil {
+		return "", ErrPepperRequired
+	}
 	release, err := acquireArgon2Slot()
 	if err != nil {
 		return "", err
@@ -119,20 +140,29 @@ func HashPattern(pattern string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hashing pattern: %w", err)
 	}
-	return hash, nil
+	peppered, err := pep.PepperHash(hash)
+	if err != nil {
+		return "", fmt.Errorf("peppering pattern hash: %w", err)
+	}
+	return peppered, nil
 }
 
-// VerifyPattern reports whether pattern matches hash, comparing in constant
-// time. It returns an error only for a malformed hash or a saturated
-// [argon2Sem] ([ErrTooManyPasswordChecks]), never for a mismatch.
-func VerifyPattern(pattern, hash string) (bool, error) {
+// VerifyPattern reports whether pattern matches hash — a value
+// [HashPattern] returned, under the same pep — comparing in constant time.
+// It returns an error only for a malformed hash, an unknown pepper key
+// version, a nil pep, or a saturated [argon2Sem]
+// ([ErrTooManyPasswordChecks]), never for a mismatch.
+func VerifyPattern(pattern, hash string, pep *Pepper) (bool, error) {
+	if pep == nil {
+		return false, ErrPepperRequired
+	}
 	release, err := acquireArgon2Slot()
 	if err != nil {
 		return false, err
 	}
 	defer release()
 
-	ok, err := argon2id.ComparePasswordAndHash(pattern, hash)
+	ok, err := pep.VerifyHash(pattern, hash)
 	if err != nil {
 		return false, fmt.Errorf("verifying pattern: %w", err)
 	}

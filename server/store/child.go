@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/oioio-space/encre/engine"
@@ -22,8 +23,9 @@ type Child struct {
 	// row and everything under it (ENCRE_04 §7).
 	ParentID string
 	Pseudo   string
-	// PatternHash is the hash of the child's tap pattern, used in place of a
-	// password.
+	// PatternHash is the peppered argon2id hash of the child's tap pattern,
+	// used in place of a password — see
+	// [github.com/oioio-space/encre/server/auth.Pepper.PepperHash].
 	PatternHash []byte
 	Avatar      int
 	// DailyLimit is the child's daily-play-time configuration. There is no
@@ -39,6 +41,37 @@ type Child struct {
 	CreatedAt time.Time
 
 	engine engine.Child
+}
+
+// LogValue implements [log/slog.LogValuer], redacting PatternHash so a
+// handler that logs a Child never writes a child's peppered pattern hash
+// into a log file — one more secret ENCRE_04 §12's Litestream replication
+// and pepper key never protects once it leaves the database (encre-qpx.8).
+// Pseudo is not redacted: it is a first name or a made-up nickname, the
+// same information the parent panel already shows over an authenticated
+// session, not the kind of data this rule protects.
+func (c *Child) LogValue() slog.Value {
+	if c == nil {
+		return slog.StringValue("<nil>")
+	}
+	return slog.GroupValue(
+		slog.String("id", c.ID),
+		slog.String("parentID", c.ParentID),
+		slog.String("pseudo", c.Pseudo),
+		slog.Bool("hasPatternHash", len(c.PatternHash) > 0),
+		slog.Int("avatar", c.Avatar),
+		slog.Time("createdAt", c.CreatedAt),
+	)
+}
+
+// String implements [fmt.Stringer] with the same redaction as
+// [Child.LogValue].
+func (c *Child) String() string {
+	if c == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("Child{ID: %q, ParentID: %q, Pseudo: %q, hasPatternHash: %t, Avatar: %d, CreatedAt: %s}",
+		c.ID, c.ParentID, c.Pseudo, len(c.PatternHash) > 0, c.Avatar, c.CreatedAt)
 }
 
 // SetEngine attaches the engine standing (rank, mastery, unlocked Talismans…)

@@ -2,6 +2,7 @@ package api
 
 import (
 	"cmp"
+	"errors"
 	"net/http"
 	"slices"
 
@@ -10,22 +11,38 @@ import (
 	"github.com/oioio-space/encre/server/store"
 )
 
-// childLoginRequest is the body of POST /child/login.
+// childLoginRequest is the body of POST /child/login. It names the child by
+// ID, chosen from [handleFamilyChildren]'s list, rather than by pseudo — see
+// encre-qpx.5 and [auth.LoginChildInFamily]'s doc comment for why a global
+// pseudo lookup can put a child in the wrong family's account.
 type childLoginRequest struct {
-	Pseudo  string `json:"pseudo"`
-	Pattern string `json:"pattern"`
+	FamilyCode string `json:"familyCode"`
+	ChildID    string `json:"childID"`
+	Pattern    string `json:"pattern"`
 }
 
-// handleChildLogin verifies pseudo and pattern with [auth.LoginChild] and,
-// on success, opens a child session cookie (brief/ENCRE_04 §7).
+// handleChildLogin verifies familyCode, childID and pattern with
+// [auth.LoginChildInFamily] and, on success, opens a child session cookie
+// (brief/ENCRE_04 §7).
+//
+// It rate-limits by childID before ever checking the pattern
+// ([Server.patternLimiter], ENCRE_04 §7's 10-patterns-per-minute-per-child)
+// — possible here, unlike the pseudo-scoped login this replaces, because
+// childID identifies at most one child regardless of whether the pattern
+// that follows turns out to be right.
 func (s *Server) handleChildLogin(w http.ResponseWriter, r *http.Request) {
 	req, ok := decodeJSON[childLoginRequest](w, r)
 	if !ok {
 		return
 	}
 
+	if !s.patternLimiter.Allow(req.ChildID) {
+		writeError(w, http.StatusTooManyRequests, "trop de tentatives, réessayez dans une minute")
+		return
+	}
+
 	ctx := r.Context()
-	childID, err := auth.LoginChild(ctx, s.db, req.Pseudo, req.Pattern)
+	childID, err := auth.LoginChildInFamily(ctx, s.db, req.FamilyCode, req.ChildID, req.Pattern, s.pep)
 	if err != nil {
 		// auth.ErrInvalidCredentials covers every reason a child login can
 		// fail; ENCRE_04 §7 asks for no enumeration oracle, so every one of
@@ -42,6 +59,46 @@ func (s *Server) handleChildLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	auth.SetSessionCookie(w, auth.CookieChild, token, auth.ChildSessionTTL)
 	writeJSON(w, http.StatusOK, map[string]string{"childID": childID})
+}
+
+// familyChild is one avatar [handleFamilyChildren] offers a child to pick
+// from — pseudo and avatar index only, never a pattern hash or anything
+// else that identifies which family this is beyond what the family code in
+// the URL already reveals.
+type familyChild struct {
+	ChildID string `json:"childID"`
+	Pseudo  string `json:"pseudo"`
+	Avatar  int    `json:"avatar"`
+}
+
+// handleFamilyChildren lists the avatars a family-scoped login page offers
+// (encre-qpx.5): every child under the parent named by the {code} path
+// value's family code, so the child can pick their own before typing a
+// pattern. An unknown code answers an empty list rather than an error — the
+// two must be indistinguishable to a client that could otherwise use this
+// endpoint to enumerate valid family codes.
+func (s *Server) handleFamilyChildren(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	parent, err := s.db.ParentByFamilyCode(ctx, r.PathValue("code"))
+	if errors.Is(err, store.ErrNotFound) {
+		writeJSON(w, http.StatusOK, []familyChild{})
+		return
+	}
+	if err != nil {
+		s.writeStoreError(w, err, "")
+		return
+	}
+
+	children, err := s.db.ChildrenOfParent(ctx, parent.ID)
+	if err != nil {
+		s.writeStoreError(w, err, "")
+		return
+	}
+	out := make([]familyChild, len(children))
+	for i, c := range children {
+		out[i] = familyChild{ChildID: c.ID, Pseudo: c.Pseudo, Avatar: c.Avatar}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // gardeCandidate is one gold word available to hold in the Garde for the
