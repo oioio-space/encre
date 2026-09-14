@@ -52,6 +52,22 @@ func TestShopBuysNothingWithoutMoney(t *testing.T) {
 	}
 }
 
+// TestRunWithSpreadDefaultsMatchRun is encre-00q.6: the balance sweep needs a
+// knob on the LearnRate/Forget spread NewChild draws children from, and
+// RunWithSpread is that knob. Run must keep calling it with the exact spread
+// the original simulation used, or every existing threshold in sim_test.go
+// would be measuring a silently different cohort.
+func TestRunWithSpreadDefaultsMatchRun(t *testing.T) {
+	cfg := engine.DefaultConfig()
+
+	viaRun := Run(20, 11, cfg)
+	viaSpread := RunWithSpread(20, 11, cfg, DefaultSpread)
+
+	if viaRun.CorrectRate != viaSpread.CorrectRate || viaRun.Retention(20) != viaSpread.Retention(20) {
+		t.Errorf("Run and RunWithSpread(..., DefaultSpread) disagreed: %+v vs %+v", viaRun, viaSpread)
+	}
+}
+
 // TestAWordSFirstMeetingIsACopyAttempt is ENCRE_01 §4: the first time a child
 // meets a word it is a Rencontre, shown rather than asked, and always
 // succeeds. sim never played it before encre-00q.2.

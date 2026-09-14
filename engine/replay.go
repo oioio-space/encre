@@ -119,6 +119,11 @@ func Replay(run Run, states map[string]*WordState, cfg Config) (Outcome, error) 
 		// word still scores nothing, but the combo it would otherwise break
 		// survives untouched.
 		gommeSpent := false
+		// raw is the manche's score as it actually fell, before the Revanche's
+		// +1 Mult. Eligibility is judged on raw, never on out.Scores[manche]:
+		// judging it on the boosted score would let the very bonus being
+		// claimed manufacture the eligibility for claiming it.
+		raw := 0.0
 
 		for _, a := range run.Attempts {
 			if a.Manche < 0 || a.Manche >= manches {
@@ -139,6 +144,7 @@ func Replay(run Run, states map[string]*WordState, cfg Config) (Outcome, error) 
 			}
 			chips, mult := Score(a, w, st, owned, combo+revancheBonus, ctx, cfg)
 			out.Scores[manche] += chips * mult
+			raw += chips * (mult - revancheBonus)
 			switch {
 			case a.Correct && !a.Copy:
 				combo++
@@ -150,22 +156,23 @@ func Replay(run Run, states map[string]*WordState, cfg Config) (Outcome, error) 
 		}
 
 		target := run.Targets[manche]
-		if out.Scores[manche] >= target {
-			// Four for the manche, and up to three more for beating it well.
-			out.Money += cfg.MancheMoney + min(3, int(out.Scores[manche]/max(target, 1)))
-			continue
-		}
 		if run.Revanche[manche] {
 			// The client claimed a Revanche; it is only legal from inside the
-			// window, and the server checks rather than trusts.
-			if out.Scores[manche] < target*cfg.RevancheWindow {
+			// window, and the server checks the score as it fell rather than
+			// the score already carrying the bonus it is being used to claim.
+			if raw < target*cfg.RevancheWindow {
 				return Outcome{}, fmt.Errorf(
 					"engine: manche %d claimed a Revanche at %.1f of a target of %.1f, under the %.0f%% window",
-					manche, out.Scores[manche], target, cfg.RevancheWindow*100,
+					manche, raw, target, cfg.RevancheWindow*100,
 				)
 			}
 			out.Events = append(out.Events, RevancheTaken)
 			out.Money += cfg.MancheMoney
+			continue
+		}
+		if out.Scores[manche] >= target {
+			// Four for the manche, and up to three more for beating it well.
+			out.Money += cfg.MancheMoney + min(3, int(out.Scores[manche]/max(target, 1)))
 			continue
 		}
 		out.FailedAt = manche

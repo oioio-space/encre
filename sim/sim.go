@@ -159,16 +159,34 @@ func (r Result) AboveBlanc(cohort int) float64 {
 	return float64(above) / float64(cohort)
 }
 
-// NewChild draws a child from the spread the original simulation used.
-func NewChild(rng *rand.Rand) *Child {
+// LearnSpread bounds the range NewChild draws a child's LearnRate and Forget
+// from — how fast mastery moves on a success, and how much a week away from
+// a word costs it (ENCRE_03 §7). Floor is the slower/more forgetful end of
+// the spread; the ceiling is Floor+Span. Individual difference is the point:
+// a spread models a class, a single number models one imaginary child.
+type LearnSpread struct {
+	LearnFloor, LearnSpan   float64
+	ForgetFloor, ForgetSpan float64
+}
+
+// DefaultSpread is the spread the original simulation used (encre-00q.6's
+// grid sweep looks for a better one, rather than this becoming the only one
+// [sim] can draw a cohort from).
+var DefaultSpread = LearnSpread{LearnFloor: 0.12, LearnSpan: 0.18, ForgetFloor: 0.88, ForgetSpan: 0.09}
+
+// NewChild draws a child from [DefaultSpread].
+func NewChild(rng *rand.Rand) *Child { return newChild(rng, DefaultSpread) }
+
+// newChild draws a child from sp.
+func newChild(rng *rand.Rand, sp LearnSpread) *Child {
 	c := &Child{
-		Forget:    0.88 + rng.Float64()*0.09,
+		Forget:    sp.ForgetFloor + rng.Float64()*sp.ForgetSpan,
 		Sessions:  []int{1, 2, 2, 3, 3, 3, 4, 4, 5, 6}[rng.IntN(10)],
 		states:    map[string]*engine.WordState{},
 		knownByID: map[string]engine.Word{},
 	}
 	c.Skill = 0.5 + rng.Float64()*0.4
-	c.LearnRate = 0.12 + rng.Float64()*0.18
+	c.LearnRate = sp.LearnFloor + rng.Float64()*sp.LearnSpan
 	c.Kindness = 1
 	c.Level = map[engine.Color]int{}
 	c.Aff = map[engine.Color]float64{}
@@ -202,15 +220,22 @@ func newWords(week int, rng *rand.Rand) []engine.Word {
 }
 
 // Run plays a cohort of n children through a school year and reports how it
-// went. It is deterministic given seed.
+// went. It is deterministic given seed, and draws its cohort from
+// [DefaultSpread].
 func Run(n int, seed uint64, cfg engine.Config) Result {
+	return RunWithSpread(n, seed, cfg, DefaultSpread)
+}
+
+// RunWithSpread is [Run], but drawing the cohort's LearnRate and Forget from
+// sp rather than [DefaultSpread] — the knob encre-00q.6's balance sweep turns.
+func RunWithSpread(n int, seed uint64, cfg engine.Config, sp LearnSpread) Result {
 	// A simulation that cannot be reproduced proves nothing: a red build has to
 	// be reproducible before anyone can chase it.
 	// #nosec G404 -- reproducibility is the requirement; nothing here is secret.
 	rng := rand.New(rand.NewPCG(seed, 0xC0FFEE))
 	children := make([]*Child, n)
 	for i := range children {
-		children[i] = NewChild(rng)
+		children[i] = newChild(rng, sp)
 	}
 
 	var res Result

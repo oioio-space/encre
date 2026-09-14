@@ -92,11 +92,12 @@ func TestReplayRefusesARevancheTheScoreDidNotEarn(t *testing.T) {
 func TestAMancheWithinTheWindowMayBeReplayedOnce(t *testing.T) {
 	// ENCRE_01: "il manquait N points" — at 85% of the target the manche is
 	// offered again, and the second pass carries one more multiplier.
+	//
+	// "mot" scores three chips at a combo of one: three, unboosted, against a
+	// target of 3.49 is 86% of it — inside the window on the score as it
+	// actually fell, before the Revanche's own +1 Mult is added.
 	cfg := engine.DefaultConfig()
-	// Three chips at a multiplier of two — one for the combo, one the Revanche
-	// adds — make six against a target of seven: short, but 86% of it, which is
-	// inside the window.
-	run := runOf([3]float64{7, 3, 3},
+	run := runOf([3]float64{3.49, 3, 3},
 		answer(0, true), answer(1, true), answer(2, true))
 	run.Revanche = [3]bool{true, false, false}
 
@@ -109,6 +110,49 @@ func TestAMancheWithinTheWindowMayBeReplayedOnce(t *testing.T) {
 	}
 	if !slices.Contains(out.Events, engine.RevancheTaken) {
 		t.Errorf("events = %v, want RevancheTaken among them", out.Events)
+	}
+}
+
+// TestRevancheEligibilityIgnoresItsOwnBonus is encre-00q.5: Replay used to
+// judge a Revanche's eligibility on the score it had already boosted by the
+// +1 Mult being claimed, so a manche that had actually fallen short of the
+// 85% window could buy its own way in. Eligibility must be judged on the
+// score as it fell; the +1 Mult belongs only to the replay that follows.
+func TestRevancheEligibilityIgnoresItsOwnBonus(t *testing.T) {
+	// "mot" scores three chips at a combo of one, unboosted. The two targets
+	// below put that raw score at 82% and 86% of the target respectively —
+	// under and over the 85% window — while the boosted score (mult 2) would
+	// clear the 85% window either way, which is exactly the bug: judging
+	// eligibility on the boosted number would call both of these eligible.
+	tests := map[string]struct {
+		target  float64
+		wantWon bool
+		wantErr bool
+	}{
+		"82 percent unboosted, not eligible": {target: 3.66, wantErr: true},
+		"86 percent unboosted, eligible":     {target: 3.49, wantWon: true},
+	}
+	cfg := engine.DefaultConfig()
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			run := runOf([3]float64{tc.target, 3, 3}, answer(0, true), answer(1, true), answer(2, true))
+			run.Revanche = [3]bool{true, false, false}
+
+			out, err := engine.Replay(run, nil, cfg)
+			if tc.wantErr {
+				if err == nil {
+					t.Error("Replay honoured a Revanche below the 85% window, want an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Replay: %v", err)
+			}
+			if out.Won != tc.wantWon {
+				t.Errorf("Won = %v, want %v: %+v", out.Won, tc.wantWon, out)
+			}
+		})
 	}
 }
 
