@@ -17,6 +17,9 @@ sbom.cdx.json
 bench-*.txt
 *.prof
 
+# Worktrees d'agents (temporaires, nettoyés automatiquement).
+.claude/worktrees/
+
 # Local-only
 .env
 .env.*

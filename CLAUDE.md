@@ -19,16 +19,44 @@ mise run cover:check     # coverage gate (COVER_MIN=85)
 mise run ci              # full gate = what CI runs (lint+test+scans)
 mise run bench:baseline  # then change code, then: mise run bench:compare (benchstat)
 mise run scan:code       # gosec + govulncheck | scan:secrets | scan:sbom (grype)
+mise run mutate          # mutation score (gremlins) — the honest test-quality measure
 mise run clean           # remove regenerable artifacts
 ```
 
 ## Architecture
 
-Module `github.com/oioio-space/encre` — <décrire ici l'architecture : packages, responsabilités,
-frontières. Remplir dès les premières briques ; ce paragraphe guide tous les agents.>
+Module `github.com/oioio-space/encre` — un jeu d'orthographe pour un enfant de CE1, en pur
+Go : un serveur qui fait autorité, un client Ebitengine compilé en natif **et** en WASM.
 
-- Package racine : API de la bibliothèque. `cmd/encre` — CLI.
-- `internal/` — packages internes (créer par responsabilité, un package = un rôle).
+**Noyau** — pur, sans E/S, et c'est ce qui le rend rejouable :
+
+- `engine` — les règles : Score, PHat/Targets, transitions du mot, rang et XP, BuildDeck,
+  Replay/Apply. **N'importe rien du dépôt**, et rien du dépôt ne le contourne.
+- `lexique` — nomme les pièges d'un mot, confirmés sur la phonétique de Lexique 3.83
+  embarquée (`lexique/data/`, CC BY-SA 4.0, voir `LICENSES.md`). Importe `engine` seul.
+- `content` — les textes dits et lus : Talismans, boss, les 60 lignes de Phalène, exploits,
+  libellés (`content/data/*.json`). Importe `engine` seul.
+- `sim` — test d'intégration : 100 enfants × 36 semaines sur le moteur réel, tenu aux
+  seuils du brief.
+
+**Client** — `client/…` doit rester compilable en `GOOS=js GOARCH=wasm`, ce qui exclut
+tout disque et tout binaire externe :
+
+- `client/ui` (écran logique, clavier, carte, compteur), `client/game` (boucle, scènes,
+  état), `client/assets` (embed).
+- *À écrire* : `client/anim` (tweens, hitstop, bave), `client/audio` (couches musicales),
+  `client/net` — **le seul chemin vers le serveur**, file hors ligne comprise.
+
+**Serveur** — *à écrire* : `server/store` (SQLite WAL, migrations embarquées),
+`server/api` (`/api/v1`), `server/parent` (panneau htmx), `server/auth` (argon2id, TOTP),
+`server/media` (ffmpeg, Piper), `server/gen` (phrases).
+
+**Binaires** : `cmd/client` (le jeu), `cmd/serve` (sert le WASM, précompressé),
+`cmd/lexique-gen` (regénère le lexique embarqué), `cmd/encre` (CLI, encore un stub).
+
+**La frontière qui compte** : le client affiche `engine.Score` pour que le compteur bouge
+tout de suite, mais c'est `Replay`/`Apply` côté serveur qui font foi (ENCRE_04 §4). Un
+client modifié ne peut donc mentir que sur ce qu'il montre, jamais sur ce qui est gardé.
 
 ## ⛔ Absolute rule: NO CGO
 
@@ -48,6 +76,64 @@ List them on the line below (space-separated package paths; read by
 `.claude/hooks/benchmark-context.sh` — keep the exact `HOT_PATHS:` prefix):
 
 HOT_PATHS:
+
+## Des tests qui attrapent des bugs, pas des tests qui font du chiffre
+
+Mathieu, 2026-09-13 : « je veux des tests unitaires intelligents, pas juste faits pour
+faire des tests, mais qui couvrent vraiment les cas. » La couverture mesure les lignes
+exécutées, pas les bugs attrapés — un test qui passe quoi qu'on casse ne vaut rien.
+Trois niveaux, à monter dans cet ordre :
+
+1. **Par l'exemple** — table-driven, un cas par comportement, `got` avant `want`, et le
+   message d'échec nomme la fonction et l'entrée. Avant d'écrire un cas, dis quelle
+   modification du code de production le ferait échouer ; si tu ne peux pas, le cas ne
+   sert à rien. Les cas limites et les erreurs comptent autant que le chemin heureux.
+2. **Par propriété** — `pgregory.net/rapid` (MPL-2.0, dépendance de test seulement,
+   citée dans `LICENSES.md`). Une propriété couvre une infinité de cas et **réduit**
+   toute seule le contre-exemple. À utiliser dès qu'une invariante se formule en une
+   phrase : « `Targets` ne dépend jamais des Talismans », « `Apply` est idempotent »,
+   « `Replay` redonne le même `Outcome` », « les positions renvoyées par `Analyze`
+   tombent toujours dans le mot ». `rapid` sait aussi les **machines à états**, ce qui
+   est exactement la forme d'une run et d'un `WordState`.
+3. **Par fuzzing** — `go test -fuzz`, natif, guidé par la couverture, zéro dépendance.
+   Pour tout ce qui mange une entrée non maîtrisée : `lexique.Analyze` sur ce que le
+   parent colle, les aller-retours JSON du store, les handlers HTTP. La propriété
+   minimale est « ne panique jamais » ; au-delà, vérifie une invariante.
+
+**La mesure honnête, c'est le score de mutation** (`mise run mutate`, gremlins) : il
+casse le code exprès et compte combien de mutants tes tests tuent. Un mutant survivant
+est une ligne que personne ne teste vraiment. Le viser vaut mieux que viser la
+couverture, et il dit la vérité sur un test écrit pour la forme.
+
+**E2E** : chaque frontière a le sien. Serveur — `httptest` plus une vraie base SQLite en
+mémoire, du POST jusqu'à l'état en base. Client — Playwright sur le WASM réellement
+servi, sur profil d'appareil émulé. Et surtout le test **différentiel** qui garde
+l'invariante d'ENCRE_04 §4 : pour une même run, le score du client et celui du serveur
+doivent tomber au jeton près.
+
+## L'œil et la main d'un enfant de sept ans
+
+Mathieu, 2026-09-13 : « vérifie toujours l'intérêt et la convivialité du jeu, avec un
+esthétisme soigné ». Ce n'est pas une couche de peinture à la fin, c'est un critère
+d'acceptation de chaque écran. Trois obligations :
+
+1. **Chercher avant de dessiner.** Les 48 dp de Material et les 44 pt d'Apple sont
+   calibrés sur des adultes ; un enfant de sept ans n'a ni la même précision motrice ni
+   le même doigt. Les décisions d'interface se prennent sur des sources — recherche
+   publiée, référentiels — pas au goût. Ce qui est mesuré l'emporte sur ce qui est joli.
+2. **Regarder le résultat.** Un écran n'est pas fini parce que le test passe. On le
+   construit, on le sert en WASM, on le capture sur profil d'appareil émulé, et on le
+   *regarde*. Trop petit, trop serré, mal aligné, sans respiration : ce sont des défauts
+   au même titre qu'un test rouge. Cette session l'a déjà appris deux fois.
+3. **Le plancher d'ENCRE_06 §8 n'est pas négociable** : tout texte lu par l'enfant
+   ≥ 14 px logiques et contraste ≥ 4,5:1 ; toute cible tactile ≥ 48 px ; jamais deux
+   textes simultanés à l'écran ; tout texte a un haut-parleur atteignable. Une Couleur
+   ne doit jamais être le seul porteur d'une information — un glyphe ou un mot la
+   double, pour l'enfant daltonien.
+
+**Le juste avant le joli, et le lisible avant le juste.** Une police à empattements est
+plus belle ; un `a` à un étage est ce que l'enfant apprend à écrire. Quand les deux
+s'opposent, c'est l'enfant qui gagne, et l'écart est consigné avec sa raison.
 
 ## Research-first
 

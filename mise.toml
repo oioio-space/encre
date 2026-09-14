@@ -36,7 +36,9 @@ yamlfmt       = "latest"
 watchexec     = "latest"
 goreleaser    = "latest"
 
-# ── Environment ───────────────────────────────────────────────────────────────
+# ── Environment ───────────────────────────────────────────────────────────────# Mutation testing (mise run mutate) — not a commit gate, see [tasks.mutate].
+"go:github.com/go-gremlins/gremlins/cmd/gremlins" = "latest"
+
 [env]
 GOFLAGS = "-mod=readonly"
 # Absolute rule: this project is pure Go. CGO off everywhere (build, test, release).
@@ -50,6 +52,10 @@ _.path = ["{{ env.HOME }}/go/bin"]
 enter = "git config core.hooksPath .githooks >/dev/null 2>&1 || true"
 
 # ── Tasks ─────────────────────────────────────────────────────────────────────
+[tasks.mutate]
+description = "Mutation testing (gremlins) on the logic packages — MSI_MIN fails below a score. Deliberately NOT in ci: a gate here rewards padding the score"
+run = "./scripts/mutate.sh"
+
 [tasks.fmt]
 description = "Format all Go code with gofumpt"
 run = "gofumpt -w ."
