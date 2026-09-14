@@ -1,0 +1,51 @@
+# Litestream replication config (brief/ENCRE_04 §12, encre-qpx.4).
+#
+# Pinned to v0.3.14, NOT the latest v0.5.x: age encryption is what makes the
+# B2 replica unreadable to anyone holding only the B2 key (encre-qpx.4 point
+# 3), and v0.5's LTX storage rewrite dropped it — its own binary says so:
+#
+#   $ litestream replicate ...   # v0.5.17
+#   age encryption is not currently supported, if you need encryption
+#   please revert back to Litestream v0.3.x
+#
+# v0.3.14 is the newest 0.3.x tag and was hand-verified for this ticket: a
+# `litestream replicate` / `litestream restore` round trip against a local
+# file replica (see deploy/restore-test.sh) produces a snapshot that opens
+# with `age-encryption.org/v1` as its first line, restores correctly with
+# the right identity, and fails outright ("lz4: bad magic number" — the
+# ciphertext is not valid lz4, let alone a valid SQLite page) without it.
+#
+# Install the official static build rather than `go install`: v0.3.14
+# depends on mattn/go-sqlite3 (CGO), and this project's own CGO_ENABLED=0
+# (mise.toml [env]) is scoped to github.com/oioio-space/encre's own build —
+# Litestream is explicitly a separate process, not a library this module
+# imports, so its own CGO use never touches that rule.
+#
+#   curl -LO https://github.com/benbjohnson/litestream/releases/download/v0.3.14/litestream-v0.3.14-linux-amd64.deb
+#   dpkg -i litestream-v0.3.14-linux-amd64.deb
+#
+# Generate the age keypair once (filippo.io/age, not part of this repo):
+#   go run filippo.io/age/cmd/age-keygen@v1.2.1 -o /etc/encre/litestream-age.key
+#   chmod 0600 /etc/encre/litestream-age.key
+# The public "recipients" line it prints goes below; keep the secret key
+# file OFF this VPS as well as on it — a second copy in a password manager
+# is what makes restoring onto a *replacement* VPS possible at all, since
+# the VPS holding the only copy is presumably the one that just died.
+#
+# B2 credentials (application key, bucket-scoped) go in the environment,
+# never in this file — deploy/encre-litestream.env, loaded by
+# deploy/litestream.service, 0600, same "never in the data directory"
+# reasoning as the pepper key (deploy/encre.service's comment).
+
+dbs:
+  - path: /var/lib/encre/encre.db
+    replicas:
+      - type: s3
+        bucket: ${ENCRE_B2_BUCKET}
+        path: encre
+        endpoint: ${ENCRE_B2_ENDPOINT} # e.g. s3.eu-central-003.backblazeb2.com
+        access-key-id: ${ENCRE_B2_KEY_ID}
+        secret-access-key: ${ENCRE_B2_APPLICATION_KEY}
+        age:
+          recipients:
+            - ${ENCRE_LITESTREAM_AGE_RECIPIENT} # age1... — public, safe to keep here

@@ -2,9 +2,9 @@
 // device test of brief/ENCRE_05 ticket T00.
 //
 // It is the http.FileServer that ticket asks for and nothing more: the real
-// static serving belongs to cmd/server behind Caddy (ENCRE_04 §1). It binds all
-// interfaces on purpose, because the whole point is to open the page on a phone
-// and a tablet that are not this machine.
+// static serving belongs to cmd/server behind Caddy (ENCRE_04 §1, deploy/Caddyfile).
+// It binds all interfaces on purpose, because the whole point is to open the
+// page on a phone and a tablet that are not this machine.
 package main
 
 import (
@@ -15,9 +15,9 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
-	"strings"
 	"time"
+
+	"github.com/oioio-space/encre/internal/httpstatic"
 )
 
 func main() {
@@ -46,50 +46,12 @@ func main() {
 	// pulling ~18 MB of WebAssembly over whatever link it has.
 	srv := &http.Server{
 		Addr:              *addr,
-		Handler:           precompressed(http.Dir(*dir), http.FileServer(http.Dir(*dir))),
+		Handler:           httpstatic.Precompressed(http.Dir(*dir), http.FileServer(http.Dir(*dir))),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      5 * time.Minute,
 	}
 	log.Fatal(srv.ListenAndServe())
-}
-
-// precompressed serves <name>.gz in place of <name> when the client accepts it.
-//
-// It is not a nicety: the client is 18 MB of WebAssembly, which takes about
-// sixteen seconds to reach a phone over a real 4G link uncompressed and under
-// four compressed. Measuring the first load is one of ticket T00's acceptance
-// criteria, and measuring it on a server that does not compress measures the
-// server. Production puts Caddy in front with brotli (ENCRE_04 §1); this is the
-// same trick with what the standard library has.
-func precompressed(dir http.Dir, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			next.ServeHTTP(w, r)
-			return
-		}
-		f, err := dir.Open(r.URL.Path + ".gz")
-		if err != nil {
-			next.ServeHTTP(w, r)
-			return
-		}
-		defer f.Close() //nolint:errcheck // read-only file, nothing to report
-
-		// The encoding is gzip, but the TYPE is still the type of what is inside
-		// — a browser told application/gzip will download the file instead of
-		// instantiating it.
-		if ct := mime.TypeByExtension(path.Ext(r.URL.Path)); ct != "" {
-			w.Header().Set("Content-Type", ct)
-		}
-		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("Vary", "Accept-Encoding")
-		stat, err := f.Stat()
-		if err != nil {
-			next.ServeHTTP(w, r)
-			return
-		}
-		http.ServeContent(w, r, "", stat.ModTime(), f)
-	})
 }
 
 // addresses lists the host's routable addresses so the URL can be typed into a

@@ -1,0 +1,57 @@
+# ENCRE production Caddyfile (brief/ENCRE_04 §12, ticket T31).
+#
+# Topology: Caddy is the only thing the internet ever talks to; it terminates
+# TLS and reverse-proxies everything to cmd/server, which listens in
+# plaintext on 127.0.0.1:8081 (cmd/server/flags.go's -addr default). Nothing
+# sits in front of Caddy on this single Hetzner CX22 — no CDN, no load
+# balancer — so Caddy's own `trusted_proxies` global option is deliberately
+# NOT set below. That option governs whether CADDY trusts an *incoming*
+# X-Forwarded-For from whatever connects to it (checked against the current
+# docs at https://caddyserver.com/docs/caddyfile/options#trusted-proxies,
+# 2026-09); with nothing upstream of Caddy, enabling it would let any visitor
+# forge the IP Caddy logs and hands onward. If a CDN or a second reverse
+# proxy is ever added in front of Caddy, add here:
+#
+#   {
+#       servers {
+#           trusted_proxies static <the CDN's published CIDR ranges>
+#           trusted_proxies_strict
+#       }
+#   }
+#
+# and re-derive server/auth's trustedProxies to match — the two must always
+# name the same hop, in whichever direction the mirroring runs (see
+# deploy/README.md, "Trusted proxies, end to end").
+#
+# What Caddy always does regardless, by design of reverse_proxy itself: it
+# appends the real immediate peer's IP as the *last* entry of
+# X-Forwarded-For before forwarding to cmd/server, it never simply relays a
+# client-supplied one unchanged. server/auth.ClientIP is written to walk that
+# header from the right and stop at the first hop NOT in its own
+# trustedProxies list (server/auth/clientip.go) — so as long as cmd/server is
+# started with trustedProxies = {127.0.0.1/32, ::1/128} (Caddy's own
+# address, the mirror this file's name refers to), a forged left-most entry
+# is ignored and the real client IP is what the rate limiter keys on, with or
+# without Caddy's own trusted_proxies option.
+{
+	email admin@encre.example
+}
+
+encre.example {
+	encode zstd gzip
+
+	# ENCRE_04 §12: assets under /static are named with a content hash by
+	# `mise run wasm:build` — a new release is a new URL, never a mutation of
+	# an old one — so caching them forever is correct, not a bug waiting to
+	# ship a stale WASM binary to every returning player at once.
+	header /static/* Cache-Control "public, max-age=31536000, immutable"
+
+	# index.html and the service worker are the two things that must never
+	# be cached this aggressively — see cmd/server/main.go's serveNoCache
+	# doc comment for why (it names the current /static hash and sw.js
+	# checks its own CACHE_NAME on every visit).
+	header /sw.js Cache-Control "no-cache"
+	header / Cache-Control "no-cache"
+
+	reverse_proxy 127.0.0.1:8081
+}

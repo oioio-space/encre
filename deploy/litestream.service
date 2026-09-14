@@ -1,0 +1,38 @@
+# Litestream replication unit (brief/ENCRE_04 §12, encre-qpx.4).
+#
+# A separate unit from encre.service on purpose: Litestream is documented
+# (litestream.io) as a standalone process operating on the WAL at the file
+# level, not a library — running it as its own systemd unit is that
+# documented usage, not a repo-specific choice. It also means a Litestream
+# crash or upgrade never takes the game server down, and vice versa.
+#
+# Install:
+#   curl -LO https://github.com/benbjohnson/litestream/releases/download/v0.3.14/litestream-v0.3.14-linux-amd64.deb
+#   dpkg -i litestream-v0.3.14-linux-amd64.deb   # installs /usr/bin/litestream
+#   install -m 0644 deploy/litestream.yml /etc/litestream.yml
+#   install -m 0600 deploy/encre-litestream.env.example /etc/encre/litestream.env
+#   # then fill in /etc/encre/litestream.env for real, see that file's comments
+#   install -m 0644 deploy/litestream.service /etc/systemd/system/litestream.service
+#   systemctl daemon-reload && systemctl enable --now litestream
+
+[Unit]
+Description=Litestream replication for ENCRE's SQLite database
+Documentation=https://litestream.io/reference/config/
+After=network-online.target encre.service
+Wants=network-online.target
+BindsTo=encre.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/encre/litestream.env
+ExecStart=/usr/bin/litestream replicate -config /etc/litestream.yml
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/encre
+
+[Install]
+WantedBy=multi-user.target

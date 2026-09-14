@@ -142,7 +142,7 @@ run = "./scripts/rtkx.sh ./scripts/lint.sh --staged"
 description = "Lint the bash hook scripts with shellcheck"
 # .beads/hooks/* are the shims that delegate to .githooks — they carry the whole
 # gate chain, so a broken one must fail the build, not silently skip every gate.
-run = "shellcheck -x --source-path=SCRIPTDIR .githooks/* .beads/hooks/* .claude/hooks/*.sh .claude/hooks/lib/*.sh scripts/*.sh"
+run = "shellcheck -x --source-path=SCRIPTDIR .githooks/* .beads/hooks/* .claude/hooks/*.sh .claude/hooks/lib/*.sh scripts/*.sh deploy/*.sh"
 
 [tasks."lint:yaml"]
 description = "Lint YAML config formatting with yamlfmt"
@@ -220,26 +220,68 @@ description = "Pre-commit gate: tidy artifacts + block any staged artifact"
 run = "./scripts/clean-artifacts.sh --check"
 
 [tasks."wasm:build"]
-description = "Build the client for the browser into dist/web (ticket T00)"
+description = "Build the client for the browser into dist/web (ticket T00, ENCRE_04 §2)"
 # wasm_exec.js is the Go runtime's own shim and must match the toolchain that
 # produced the .wasm, so it is copied from GOROOT at build time, never vendored.
+#
+# Every asset under dist/web/static is named with a content hash: that is
+# what makes deploy/Caddyfile's `Cache-Control: public, max-age=31536000,
+# immutable` on /static/* honest instead of a lie a redeploy would break. The
+# hash also seeds web/sw.js's CACHE_NAME, so a new build gets its own service
+# worker cache and the previous one is dropped on activate.
 run = """
 set -euo pipefail
-mkdir -p dist/web
-GOOS=js GOARCH=wasm go build -o dist/web/encre.wasm ./cmd/client
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" dist/web/
-cp web/index.html dist/web/
-# Pre-compressed once here rather than per request: the wasm is 18 MB, and
-# gzipping it on every fetch would cost more than it saves.
-gzip -9 -kf dist/web/encre.wasm
-printf 'dist/web: %s de wasm, %s servi en gzip\n' \
-  "$(du -h dist/web/encre.wasm | cut -f1)" "$(du -h dist/web/encre.wasm.gz | cut -f1)"
+rm -rf dist/web
+mkdir -p dist/web/static
+GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o dist/web/static/encre.wasm ./cmd/client
+HASH=$(sha256sum dist/web/static/encre.wasm | cut -c1-12)
+mv dist/web/static/encre.wasm "dist/web/static/encre.$HASH.wasm"
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" "dist/web/static/wasm_exec.$HASH.js"
+sed "s/__HASH__/$HASH/g" web/index.html > dist/web/index.html
+sed "s/__HASH__/$HASH/g" web/sw.js > dist/web/sw.js
+# Pre-compressed once here rather than per request: the wasm is tens of MB,
+# and gzipping it on every fetch would cost more than it saves. Caddy adds
+# zstd/gzip negotiation in front in production (deploy/Caddyfile); cmd/serve
+# (phone/tablet dev server) and cmd/server both fall back to these .gz
+# siblings via internal/httpstatic.
+gzip -9 -kf "dist/web/static/encre.$HASH.wasm"
+gzip -9 -kf "dist/web/static/wasm_exec.$HASH.js"
+printf 'dist/web/static: %s de wasm (brut), %s en gzip — hash %s\n' \
+  "$(du -h "dist/web/static/encre.$HASH.wasm" | cut -f1)" \
+  "$(du -h "dist/web/static/encre.$HASH.wasm.gz" | cut -f1)" "$HASH"
 """
 
 [tasks."wasm:serve"]
 description = "Build the client for the browser and serve it on :8080 (phone/tablet test)"
 depends = ["wasm:build"]
 run = "go run ./cmd/serve"
+
+[tasks."native:build"]
+description = "Cross-compile the desktop client (cmd/client) for linux/darwin/windows into dist/bin"
+# CGO_ENABLED=0 is already pinned in [env]; Ebitengine's non-wasm targets
+# link against the OS's own GL/audio libraries at runtime (not at compile
+# time), so a pure-Go cross-compile from Linux works for all three.
+run = """
+set -euo pipefail
+mkdir -p dist/bin
+for goos_goarch in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+  goos="${goos_goarch%/*}"; goarch="${goos_goarch#*/}"
+  ext=""; [ "$goos" = "windows" ] && ext=".exe"
+  out="dist/bin/encre-client-$goos-$goarch$ext"
+  echo "building $out"
+  GOOS="$goos" GOARCH="$goarch" go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/client
+done
+du -h dist/bin/encre-client-*
+"""
+
+[tasks."server:build"]
+description = "Build the production server binary (cmd/server, ENCRE_04 §12) into dist/bin"
+run = """
+set -euo pipefail
+mkdir -p dist/bin
+go build -trimpath -ldflags="-s -w" -o dist/bin/encre-server ./cmd/server
+du -h dist/bin/encre-server
+"""
 
 [tasks."hooks:install"]
 description = "Point git at .githooks, or at .beads/hooks when its shims delegate there"

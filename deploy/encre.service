@@ -1,0 +1,57 @@
+# ENCRE production server unit (brief/ENCRE_04 §12, ticket T31).
+#
+# Chosen over a Dockerfile for this deployment: ENCRE_04 §1 puts the whole
+# thing on one Hetzner CX22 with Caddy and Litestream alongside it — a
+# family server, not a cluster. `cmd/server` is already a single static Go
+# binary (CGO_ENABLED=0, mise.toml [env]) with everything else it needs
+# (dist/web, the SQLite file) as plain paths on disk; a container adds an
+# image build/push/pull step and a second process-supervision layer (the
+# container runtime) on top of one systemd already provides for free. The
+# simplest thing that stays up wins here: `mise run server:build` +
+# `systemctl restart encre` is the whole deploy.
+#
+# Install:
+#   install -o encre -g encre -m 0755 dist/bin/encre-server /usr/local/bin/encre-server
+#   install -o encre -g encre -m 0755 -d dist/web /var/lib/encre/web/current  # rsync the tree, not just this line
+#   install -m 0644 deploy/encre.service /etc/systemd/system/encre.service
+#   systemctl daemon-reload && systemctl enable --now encre
+
+[Unit]
+Description=ENCRE game server (cmd/server)
+Documentation=https://github.com/oioio-space/encre
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=encre
+Group=encre
+WorkingDirectory=/var/lib/encre
+
+# ENCRE_PEPPER_KEY (and, once rotated, ENCRE_PEPPER_KEY_RETIRED) live in a
+# file OUTSIDE /var/lib/encre on purpose — see deploy/litestream.yml's
+# `dbs:` path — Litestream only ever watches encre.db, but the key file also
+# lives elsewhere so a future "just tar up the data dir" backup can never
+# accidentally carry it. 0600, owned by the encre user only.
+EnvironmentFile=/etc/encre/pepper.env
+
+ExecStart=/usr/local/bin/encre-server \
+    -addr 127.0.0.1:8081 \
+    -db file:/var/lib/encre/encre.db \
+    -web /var/lib/encre/web/current
+
+Restart=on-failure
+RestartSec=2s
+
+# Defence in depth for a binary that already refuses CGO and runs as its own
+# unprivileged user: no capability it does not need, no path it does not use.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/encre
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

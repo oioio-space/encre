@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#EAD9B4">
-<title>ENCRE — prototype clavier</title>
+<title>ENCRE</title>
 <style>
   /* Palette ENCRE_02 §3, thème clair de ENCRE_06 §2. Ni blanc ni noir purs.
      Le fond est celui du jeu : Ebitengine garde le rapport 390x844 ou 1280x720
@@ -28,15 +28,17 @@
 </head>
 <body>
 <div id="chargement"><div><div id="goutte"></div><div id="etat">chargement…</div></div></div>
-<script src="wasm_exec.js"></script>
+<script src="/static/wasm_exec.__HASH__.js"></script>
 <script>
 (async () => {
   const etat = document.getElementById("etat");
   const debut = performance.now();
   const go = new Go();
   try {
-    // instantiateStreaming needs the server to send application/wasm; cmd/serve does.
-    const { instance } = await WebAssembly.instantiateStreaming(fetch("encre.wasm"), go.importObject);
+    // instantiateStreaming needs the server to send application/wasm; both
+    // cmd/serve and cmd/server (behind Caddy, deploy/Caddyfile) do.
+    const { instance } = await WebAssembly.instantiateStreaming(
+      fetch("/static/encre.__HASH__.wasm"), go.importObject);
     etat.textContent = `chargé en ${((performance.now() - debut) / 1000).toFixed(1)} s`;
     document.getElementById("chargement").remove();
     go.run(instance);
@@ -44,6 +46,15 @@
     etat.textContent = "échec : " + err;
   }
 })();
+
+// Le service worker met le WASM, wasm_exec.js et cette page en cache pour un
+// démarrage hors ligne (ENCRE_04 §2) ; son échec ne doit jamais bloquer le
+// premier chargement, donc l'erreur est seulement journalisée.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch((err) => {
+    console.warn("service worker non enregistré :", err);
+  });
+}
 </script>
 </body>
 </html>

@@ -301,6 +301,93 @@ Aucune étude ne chiffre le cas précis parchemin contre encre : **ce n'est pas 
 changement à faire aveuglément**. Piste plutôt qu'un retour au thème nuit, déjà écarté
 pour de bonnes raisons : un mode « soir » optionnel, parchemin atténué.
 
+## 4 ter. Les 85 % de Wilson ne sont pas atteignables dans ce modèle
+
+`03` §7 fixe le modèle d'apprentissage : `maîtrise += 0,20 × (1 − maîtrise)` à la
+réussite, `×= 0,93` par semaine sans jeu. La question était de savoir si un réglage de
+ces deux nombres suffirait à amener l'enfant au taux de réussite optimal de 85 %
+([Wilson et al., *Nature Communications* 2019](https://www.nature.com/articles/s41467-019-12552-4)).
+
+**Réponse mesurée : non.** Balayage sur cohorte de 100 enfants, 36 semaines, graine fixe.
+
+| `LearnFloor` | `ForgetFloor` | mots justes | M1 | boss | rétention | > Blanc |
+|---|---|---|---|---|---|---|
+| 0,12 | 0,88 | 67,1 % | 2,1 % | 24,3 % | 100 % | 80 % |
+| 0,20 | 0,90 | 70,1 % | 2,0 % | 23,5 % | 100 % | 89 % |
+| 0,36 | 0,90 | 73,1 % | 1,5 % | 22,8 % | 100 % | 90 % |
+| 0,52 | 0,90 | 75,6 % | 1,6 % | 22,3 % | 100 % | 97 % |
+| 0,70 | 0,90 | 77,3 % | 1,2 % | 22,0 % | 99 % | 99 % |
+
+**Aucun garde-fou ne mord** sur toute la grille — M1, boss, rétention et progression de
+rang restent sains partout. C'est le taux de mots justes lui-même qui plafonne, vers
+**75 à 77 %**.
+
+Le cas dégénéré le dit mieux que le tableau : avec `LearnFloor = 1,0` — *une réussite
+suffit à maîtriser un mot, il n'y a plus d'apprentissage progressif du tout* — on atteint
+**79 %**. Il faut donc **détruire le modèle** pour franchir 78 %, et détruire le modèle
+retire précisément la courbe de difficulté dans laquelle l'optimum de Wilson est censé
+se placer. Le remède annulerait la raison du remède.
+
+**Décidé** : on ne règle pas `LearnRate` et `Forget` pour ce chiffre. Le seuil de
+`sim_test.go` est **65–80 %**, avec cette mesure comme justification.
+
+**Ce qui reste à explorer**, si l'écart compte un jour : la composition du pool, pas la
+vitesse d'apprentissage. Le diagnostic d'origine montre que le p̂ moyen du pool plafonne
+à 0,60 et que même les mots **dorés** ne dépassent pas 0,736 — un afflux constant de mots
+neufs et peu maîtrisés dilue la moyenne. Ce sont `WordsPerWeek`, `RecycleOld` et la taille
+de la Garde qu'il faudrait regarder, pas la courbe d'un mot isolé.
+
+Note au passage sur la valeur du brief : les nombres exacts de `03` §7 (`LearnRate = 0,20`,
+`Forget = 0,93`, sans dispersion individuelle) donnent **66,8 %** — à peine différent du
+défaut actuel. La dispersion par enfant que le code ajoute suit donc bien la moyenne que
+le brief prescrit.
+
+## 4 quater. Le budget WASM passe de 3 à 4 Mo brotli, et Litestream ne chiffre plus
+
+### Le budget
+
+`04` §2 budgète « ~10 Mo de WASM non compressé, ~3 Mo brotli ». Mesuré après intégration
+des vraies polices : **~25 Mo brut, ~7,2 Mo gzip, ~4,1 Mo brotli**.
+
+Ce ne sont **pas** les polices — 265 Ko pour les trois, sous-ensemblées — mais
+`go-text/typesetting`, le moteur de composition que `GoTextFace` entraîne dès qu'une vraie
+TTF est chargée. Les leviers ont été essayés et mesurés :
+
+- `-trimpath -ldflags="-s -w"` : **3 %**. Appliqué, mais anecdotique.
+- **TinyGo** : refuse net — `tinygo 0.41.1` exige Go 1.19 à 1.26, le projet est en 1.27.
+  Il faudrait rétrograder tout le dépôt pour un gain incertain.
+
+**Décidé : le budget passe à ~4 Mo brotli.** Une décision assumée vaut mieux qu'un chiffre
+qu'on fait semblant de tenir. Le premier chargement est mis en cache par un service worker,
+donc l'écart ne se paie qu'une fois par version.
+
+### Litestream ne sait plus chiffrer
+
+`04` §12 prévoit « Litestream : replicate continu vers B2 » et `ENCRE_07` §3 exige que la
+cible soit chiffrée, puisque le fichier SQLite contient les hash de mots de passe, les
+motifs des enfants et les secrets TOTP.
+
+**Vérifié en le faisant tourner** : Litestream **v0.5.17**, la version courante, **refuse
+le chiffrement age** — « age encryption is not currently supported… revert back to v0.3.x ».
+Ce n'est pas une supposition, c'est le message du binaire.
+
+**Décidé : épingler Litestream à v0.3.14**, la dernière version où `age:` fonctionne, et
+faire tourner l'aller-retour complet. Il est un **processus séparé**, donc son besoin de
+CGO ne concerne pas ce module.
+
+Et la restauration est **prouvée, pas espérée** — `deploy/restore-test.sh` vérifie les
+trois choses qui comptent : l'instantané commence bien par l'en-tête
+`age-encryption.org/v1` ; la restauration **échoue** sans l'identité ; elle **réussit et
+correspond** avec elle. C'est le jour où on en a besoin qu'on découvre qu'un script de
+restauration ne marche pas.
+
+### Deux des six mesures d'`/admin/metrics` ne sont pas calculables
+
+`04` §12 demande six mesures. Quatre sortent du schéma actuel : répartition des rangs,
+échec par rang et par manche, temps moyen par mot, part de l'aveugle. **Les dorées par
+semaine et les revanches ne s'en déduisent pas** — rien ne les horodate. Documenté dans le
+code plutôt que simulé.
+
 ## 5. Décisions techniques qui ne sont pas dans le brief
 
 - **SQL** : `ent` (entgo.io) écarté — ses clés primaires composites ne marchent que pour
