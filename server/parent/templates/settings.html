@@ -1,0 +1,68 @@
+{{define "settings.html"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENCRE — réglages de {{.Child.Pseudo}}</title>
+  <link rel="stylesheet" href="/parent/static/style.css">
+</head>
+<body>
+  <h1>Réglages — {{.Child.Pseudo}}</h1>
+  <p><a href="/parent/children">&larr; Retour aux enfants</a></p>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+  <form method="post" action="/parent/children/{{.Child.ID}}/settings">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+    <h2>Temps de jeu</h2>
+    <label for="minutes_per_day">Limite par jour (minutes)</label>
+    <input type="number" id="minutes_per_day" name="minutes_per_day" min="0" max="240" value="{{.Limit.MinutesPerDay}}" required>
+
+    <h2>Clavier</h2>
+    <div class="rule-row">
+      <input type="radio" id="keyboard-abc" name="keyboard" value="abc" {{if eq .Settings.Keyboard "abc"}}checked{{end}}>
+      <label for="keyboard-abc">ABC</label>
+    </div>
+    <div class="rule-row">
+      <input type="radio" id="keyboard-azerty" name="keyboard" value="azerty"
+             {{if eq .Settings.Keyboard "azerty"}}checked{{end}}
+             disabled
+             data-portrait-restricted
+             aria-describedby="keyboard-azerty-note">
+      <label for="keyboard-azerty">AZERTY</label>
+    </div>
+    <p id="keyboard-azerty-note" class="error">
+      AZERTY n'est proposé qu'en paysage ou sur tablette : en portrait sur
+      téléphone, dix colonnes donneraient des touches d'environ 6&nbsp;mm,
+      trop petites pour un doigt d'enfant.
+    </p>
+
+    <h2>Cahier</h2>
+    <div class="rule-row">
+      <input type="checkbox" id="cahier" name="cahier" {{if .Settings.Cahier}}checked{{end}}>
+      <label for="cahier">Activer le Cahier</label>
+    </div>
+
+    <h2>Règles fines</h2>
+    {{range .RuleGroups}}
+      <fieldset class="rule-group">
+        <legend>{{.Category}}</legend>
+        {{$settings := $.Settings}}
+        {{range .Rules}}
+          <div class="rule-row">
+            <input type="checkbox" id="rule-{{.ID}}" name="rule.{{.ID}}"
+                   {{if index $settings.Rules .ID}}checked{{end}}>
+            <label for="rule-{{.ID}}">{{.Label}}</label>
+          </div>
+        {{end}}
+      </fieldset>
+    {{end}}
+
+    <button type="submit">Enregistrer</button>
+  </form>
+  <script src="/parent/static/htmx.min.js"></script>
+  <script src="/parent/static/keyboard-layout.js"></script>
+</body>
+</html>
+{{end}}

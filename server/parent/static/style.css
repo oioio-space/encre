@@ -1,0 +1,89 @@
+/* style.css — mobile-first styling for the parent panel. The parent reads
+   this standing up, in the evening, on a phone: large tap targets, one
+   column, minimal contrast work. */
+
+:root {
+  color-scheme: dark;
+  --bg: #1c1a17;
+  --fg: #f0ead6;
+  --accent: #c9a84c;
+  --danger: #b3452e;
+  --field: #2a2620;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 1rem;
+  background: var(--bg);
+  color: var(--fg);
+  font: 1rem/1.4 system-ui, sans-serif;
+  max-width: 32rem;
+  margin-inline: auto;
+}
+
+h1, h2 {
+  font-weight: 600;
+}
+
+label {
+  display: block;
+  margin-block: 0.75rem 0.25rem;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"] {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1.1rem;
+  background: var(--field);
+  color: var(--fg);
+  border: 1px solid #453f34;
+  border-radius: 0.5rem;
+}
+
+button, input[type="submit"] {
+  display: block;
+  width: 100%;
+  padding: 0.9rem;
+  margin-block-start: 1rem;
+  font-size: 1.1rem;
+  background: var(--accent);
+  color: #1c1a17;
+  border: none;
+  border-radius: 0.5rem;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.rule-group {
+  border: 1px solid #453f34;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-block-end: 0.75rem;
+}
+
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-block: 0.35rem;
+}
+
+.logout-form {
+  margin-block-start: 2rem;
+}
+
+.child-card {
+  border: 1px solid #453f34;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-block-end: 0.75rem;
+}

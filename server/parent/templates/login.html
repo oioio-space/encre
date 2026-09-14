@@ -1,0 +1,28 @@
+{{define "login.html"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENCRE — connexion</title>
+  <link rel="stylesheet" href="/parent/static/style.css">
+</head>
+<body>
+  <h1>ENCRE — panneau parent</h1>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+  <form method="post" action="/parent/login">
+    <label for="email">E-mail</label>
+    <input type="email" id="email" name="email" required autocomplete="username">
+
+    <label for="password">Mot de passe</label>
+    <input type="password" id="password" name="password" required autocomplete="current-password">
+
+    <label for="totp">Code à 6 chiffres</label>
+    <input type="text" id="totp" name="totp" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code">
+
+    <button type="submit">Se connecter</button>
+  </form>
+  <script src="/parent/static/htmx.min.js"></script>
+</body>
+</html>
+{{end}}

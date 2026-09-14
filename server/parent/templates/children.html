@@ -1,0 +1,43 @@
+{{define "children.html"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENCRE — enfants</title>
+  <link rel="stylesheet" href="/parent/static/style.css">
+</head>
+<body>
+  <h1>Enfants</h1>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+  {{range .Children}}
+    <div class="child-card">
+      <strong>{{.Pseudo}}</strong>
+      <div><a href="/parent/children/{{.ID}}/settings">Réglages</a></div>
+    </div>
+  {{else}}
+    <p>Aucun enfant pour l'instant.</p>
+  {{end}}
+
+  <h2>Ajouter un enfant</h2>
+  <form method="post" action="/parent/children">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+    <label for="pseudo">Pseudo</label>
+    <input type="text" id="pseudo" name="pseudo" maxlength="24" required>
+
+    <label for="pattern">Motif (4 chiffres de 1 à 9, une case par chiffre)</label>
+    <input type="text" id="pattern" name="pattern" inputmode="numeric" pattern="[1-9]{4}" maxlength="4" required autocomplete="off">
+
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <form method="post" action="/parent/logout" class="logout-form">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <button type="submit">Se déconnecter</button>
+  </form>
+  <script src="/parent/static/htmx.min.js"></script>
+</body>
+</html>
+{{end}}

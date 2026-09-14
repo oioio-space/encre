@@ -1,0 +1,16 @@
+{{define "error.html"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENCRE — erreur</title>
+  <link rel="stylesheet" href="/parent/static/style.css">
+</head>
+<body>
+  <h1>Oups</h1>
+  <p class="error">{{.Message}}</p>
+  <p><a href="/parent/login">Retour à la connexion</a></p>
+</body>
+</html>
+{{end}}
