@@ -17,7 +17,7 @@
 //     multipart header. A client cannot make it write, read or delete
 //     anything outside its own child's list.
 //   - Every function that reads an upload bounds how much it reads
-//     ([MaxUploadBytes]), and [SniffWebm] checks the bytes actually sent
+//     (server/api bounds the body), and [SniffWebm] checks the bytes actually sent
 //     rather than trusting a Content-Type header or a filename extension.
 //
 // [Transcode] requires ffmpeg on PATH and returns [ErrFFmpegNotFound]

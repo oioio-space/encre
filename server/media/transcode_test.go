@@ -73,6 +73,20 @@ func TestTranscodeTreatsPathsAsLiteralArguments(t *testing.T) {
 	}
 }
 
+// TestLookupFFmpegReportsNotFoundWithoutFFmpegOnPATH forces PATH to a
+// directory that cannot contain ffmpeg and checks [media.LookupFFmpeg]
+// wraps exec.LookPath's error as the specific sentinel
+// [media.ErrFFmpegNotFound] — the "absent" half of LookupFFmpeg's contract,
+// which the rest of this file's tests skip past on any machine that
+// happens to have ffmpeg installed (this one does).
+func TestLookupFFmpegReportsNotFoundWithoutFFmpegOnPATH(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	if _, err := media.LookupFFmpeg(); !errors.Is(err, media.ErrFFmpegNotFound) {
+		t.Errorf("LookupFFmpeg() with an empty PATH: error = %v, want ErrFFmpegNotFound", err)
+	}
+}
+
 func TestTranscodeRespectsContextCancellation(t *testing.T) {
 	if _, err := media.LookupFFmpeg(); errors.Is(err, media.ErrFFmpegNotFound) {
 		t.Skip("ffmpeg not found on PATH")
