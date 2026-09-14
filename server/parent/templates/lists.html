@@ -1,0 +1,29 @@
+{{define "lists.html"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENCRE — semaine de {{.Child.Pseudo}}</title>
+  <link rel="stylesheet" href="/parent/static/style.css">
+</head>
+<body>
+  <h1>Semaine — {{.Child.Pseudo}}</h1>
+  <p><a href="/parent/children">&larr; Retour aux enfants</a></p>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+  {{range .Lists}}
+    <div class="child-card">
+      <strong>{{.Label}}</strong>
+      {{if .Validated}}<span> — validée</span>{{else}}<span class="error"> — à valider</span>{{end}}
+      <div><a href="/parent/lists/{{.ID}}">Ouvrir</a></div>
+    </div>
+  {{else}}
+    <p>Aucune liste pour l'instant.</p>
+  {{end}}
+
+  <p><a href="/parent/children/{{.Child.ID}}/lists/new">+ Coller une nouvelle liste</a></p>
+  <script src="/parent/static/htmx.min.js"></script>
+</body>
+</html>
+{{end}}

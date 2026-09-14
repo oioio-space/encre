@@ -53,6 +53,12 @@ type Item struct {
 	Confidence float64
 	// Enabled says whether the item is currently in the deck it belongs to.
 	Enabled bool
+	// Confirmed says whether the parent has explicitly accepted this item's
+	// analysis. It only matters when Confidence is below
+	// [lexique.UnsureConfidence] ("à vérifier") — [Store.ValidateList]
+	// refuses to validate a list carrying an unconfirmed unsure item
+	// (ENCRE_05 backlog, encre-018).
+	Confirmed bool
 }
 
 // CreateList inserts l. It returns an error if l.ChildID names no child.
@@ -73,7 +79,82 @@ func (s *Store) ListByID(ctx context.Context, id string) (*WordList, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT id, child_id, label, share_code, due_date, validated, created_at
 		FROM word_lists WHERE id = ?`, id)
+	return scanWordListRow(row)
+}
 
+// DeleteList removes the list with the given ID. Its items, their sentences
+// and word states cascade with it (the ON DELETE CASCADE foreign keys of
+// migration 0001) — a single statement, not a manual walk down the tree.
+//
+// It does not touch anything under media/{listID}/ on disk: this package
+// has no notion of the media root ([github.com/oioio-space/encre/server/media.Root]).
+// A caller that also wants the list's recordings gone must call
+// [github.com/oioio-space/encre/server/media.Root.RemoveList] itself,
+// typically right after this succeeds (ENCRE_04 §8, "supprimé avec la
+// liste").
+func (s *Store) DeleteList(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx, `DELETE FROM word_lists WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("deleting word list: %w", err)
+	}
+	return requireRowAffected(result, "deleting word list")
+}
+
+// ValidateList marks the list as validated, unlocking it for play. It returns
+// [ErrNotFound] if no list with that ID exists.
+func (s *Store) ValidateList(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx, `UPDATE word_lists SET validated = 1 WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("validating word list: %w", err)
+	}
+	return requireRowAffected(result, "validating word list")
+}
+
+// SetListDueDate sets the date a list's dictée falls on — the "date" step of
+// ENCRE_04 §11's semaine flow — or clears it when due is the zero Time. It
+// returns [ErrNotFound] if no list with that ID exists.
+func (s *Store) SetListDueDate(ctx context.Context, id string, due time.Time) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE word_lists SET due_date = ? WHERE id = ?`, nullableUnixPtr(due), id)
+	if err != nil {
+		return fmt.Errorf("setting word list due date: %w", err)
+	}
+	return requireRowAffected(result, "setting word list due date")
+}
+
+// ListsOfChild returns every word list belonging to childID, most recently
+// created first — the order the semaine page and the export both want a
+// parent's lists shown in.
+func (s *Store) ListsOfChild(ctx context.Context, childID string) ([]*WordList, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, child_id, label, share_code, due_date, validated, created_at
+		FROM word_lists WHERE child_id = ? ORDER BY created_at DESC`, childID)
+	if err != nil {
+		return nil, fmt.Errorf("querying word lists: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var lists []*WordList
+	for rows.Next() {
+		l, err := scanWordListRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		lists = append(lists, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating word lists: %w", err)
+	}
+	return lists, nil
+}
+
+// wordListScanner is what [sql.Row] and [sql.Rows] share of the Scan method,
+// letting scanWordListRow serve both [Store.ListByID] and [Store.ListsOfChild].
+type wordListScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanWordListRow(row wordListScanner) (*WordList, error) {
 	var (
 		l         WordList
 		dueDate   sql.NullInt64
@@ -91,16 +172,6 @@ func (s *Store) ListByID(ctx context.Context, id string) (*WordList, error) {
 	}
 	l.CreatedAt = time.Unix(createdAt, 0).UTC()
 	return &l, nil
-}
-
-// ValidateList marks the list as validated, unlocking it for play. It returns
-// [ErrNotFound] if no list with that ID exists.
-func (s *Store) ValidateList(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE word_lists SET validated = 1 WHERE id = ?`, id)
-	if err != nil {
-		return fmt.Errorf("validating word list: %w", err)
-	}
-	return requireRowAffected(result, "validating word list")
 }
 
 // SaveItem inserts item, or replaces it in place if item.ID already exists.
@@ -121,29 +192,38 @@ func (s *Store) SaveItem(ctx context.Context, item *Item) error {
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO items (
 			id, list_id, kind, text, targets_json, colors_json, rules_json,
-			family, audio_path, source, confidence, enabled
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			family, audio_path, source, confidence, enabled, confirmed
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			list_id = excluded.list_id, kind = excluded.kind, text = excluded.text,
 			targets_json = excluded.targets_json, colors_json = excluded.colors_json,
 			rules_json = excluded.rules_json, family = excluded.family,
 			audio_path = excluded.audio_path, source = excluded.source,
-			confidence = excluded.confidence, enabled = excluded.enabled`,
+			confidence = excluded.confidence, enabled = excluded.enabled,
+			confirmed = excluded.confirmed`,
 		item.ID, item.ListID, item.Kind, item.Text, targets, colors, rules,
-		item.Family, item.AudioPath, item.Source, item.Confidence, item.Enabled)
+		item.Family, item.AudioPath, item.Source, item.Confidence, item.Enabled, item.Confirmed)
 	if err != nil {
 		return fmt.Errorf("saving item: %w", err)
 	}
 	return nil
 }
 
+// ItemByID returns the item with the given ID, or [ErrNotFound] if none
+// exists.
+func (s *Store) ItemByID(ctx context.Context, id string) (*Item, error) {
+	row := s.db.QueryRowContext(ctx, itemSelect+`WHERE id = ?`, id)
+	item, err := scanItem(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return item, err
+}
+
 // ItemsOfList returns every item belonging to the given list, in no
 // particular order.
 func (s *Store) ItemsOfList(ctx context.Context, listID string) ([]*Item, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, list_id, kind, text, targets_json, colors_json, rules_json,
-			family, audio_path, source, confidence, enabled
-		FROM items WHERE list_id = ?`, listID)
+	rows, err := s.db.QueryContext(ctx, itemSelect+`WHERE list_id = ?`, listID)
 	if err != nil {
 		return nil, fmt.Errorf("querying items: %w", err)
 	}
@@ -163,13 +243,24 @@ func (s *Store) ItemsOfList(ctx context.Context, listID string) ([]*Item, error)
 	return items, nil
 }
 
-func scanItem(rows *sql.Rows) (*Item, error) {
+const itemSelect = `
+	SELECT id, list_id, kind, text, targets_json, colors_json, rules_json,
+		family, audio_path, source, confidence, enabled, confirmed
+	FROM items `
+
+// itemScanner is what [sql.Row] and [sql.Rows] share of the Scan method,
+// letting scanItem serve both [Store.ItemByID] and the multi-row queries.
+type itemScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanItem(row itemScanner) (*Item, error) {
 	var (
 		item                   Item
 		targets, colors, rules string
 	)
-	err := rows.Scan(&item.ID, &item.ListID, &item.Kind, &item.Text, &targets, &colors, &rules,
-		&item.Family, &item.AudioPath, &item.Source, &item.Confidence, &item.Enabled)
+	err := row.Scan(&item.ID, &item.ListID, &item.Kind, &item.Text, &targets, &colors, &rules,
+		&item.Family, &item.AudioPath, &item.Source, &item.Confidence, &item.Enabled, &item.Confirmed)
 	if err != nil {
 		return nil, fmt.Errorf("scanning item: %w", err)
 	}

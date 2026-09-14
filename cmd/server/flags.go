@@ -8,10 +8,11 @@ import "flag"
 // pointer-typed serverConfig would let a handler accidentally mutate the
 // config it was built from.
 type serverFlags struct {
-	fs      *flag.FlagSet
-	addr    *string
-	dsn     *string
-	webRoot *string
+	fs        *flag.FlagSet
+	addr      *string
+	dsn       *string
+	webRoot   *string
+	mediaRoot *string
 }
 
 // flagSetWithDefaults declares every flag [run] accepts, on a fresh
@@ -31,5 +32,7 @@ func flagSetWithDefaults() *serverFlags {
 		webRoot: fs.String("web", "dist/web",
 			"directory `mise run wasm:build` writes: index.html and sw.js at its root, "+
 				"content-hashed assets under web/static (served at /static)"),
+		mediaRoot: fs.String("media", "media",
+			"directory server/media writes transcoded voice recordings under (ENCRE_04 §8), served at /media"),
 	}
 }

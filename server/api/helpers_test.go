@@ -2,12 +2,15 @@ package api_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -49,7 +52,11 @@ type testServer struct {
 	*httptest.Server
 	Client *http.Client
 	DB     *store.Store
-	now    *time.Time
+	// APIServer is the [api.Server] this testServer wraps, exposed for the
+	// handful of tests that configure it beyond [api.New]'s own
+	// parameters — [api.Server.SetGenClient], namely.
+	APIServer *api.Server
+	now       *time.Time
 }
 
 // newTestServer builds a testServer with its own in-memory store, starting
@@ -67,7 +74,7 @@ func newTestServer(t *testing.T) *testServer {
 	if err != nil {
 		t.Fatalf("cookiejar.New() error = %v", err)
 	}
-	ts := &testServer{Server: hs, Client: &http.Client{Jar: jar}, DB: db, now: &now}
+	ts := &testServer{Server: hs, Client: &http.Client{Jar: jar}, DB: db, APIServer: srv, now: &now}
 	// api.Server closes over `now` by reference to the local variable inside
 	// this function's own scope, which would freeze it at whatever value it
 	// held when New was called; storing that variable's address on ts and
@@ -222,6 +229,67 @@ func loginChild(t *testing.T, ts *testServer, pseudo, pattern string) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("child/login status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
+}
+
+// loginParent opens a TOTP-fresh parent session for parentID directly
+// through the store, bypassing the password and TOTP flow server/auth and
+// server/parent already test on their own: this package's tests exercise
+// what a handler does with an already-fresh [auth.RequireParent] session,
+// not how one is reached. The cookie is left on ts's client for subsequent
+// calls.
+func loginParent(t *testing.T, ts *testServer, parentID string) {
+	t.Helper()
+	token, err := auth.CreateSession(t.Context(), ts.DB, store.SessionParent, parentID, ts.Now())
+	if err != nil {
+		t.Fatalf("auth.CreateSession() error = %v", err)
+	}
+	_, err = ts.DB.DB().ExecContext(t.Context(),
+		`UPDATE sessions SET totp_ok_until = ? WHERE token = ?`,
+		ts.Now().Add(time.Hour).Unix(), hashForTest(token))
+	if err != nil {
+		t.Fatalf("setting totp_ok_until: %v", err)
+	}
+	ts.Client.Jar.SetCookies(mustParseURL(t, ts.URL), []*http.Cookie{{
+		Name: auth.CookieParent, Value: token,
+	}})
+}
+
+// hashForTest mirrors server/auth's unexported hashSessionToken so
+// [loginParent] can update the session row [auth.CreateSession] just wrote,
+// keyed the same way server/store stores it (by the token's hash, never the
+// raw token itself).
+func hashForTest(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+// mustParseURL parses rawURL, failing the test on error.
+func mustParseURL(t *testing.T, rawURL string) *url.URL {
+	t.Helper()
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("url.Parse(%q) error = %v", rawURL, err)
+	}
+	return u
+}
+
+// seedDicteeList creates a word list with two items for childID and returns
+// (listID, item1ID, item2ID), ready for a POST .../dictee-result test.
+func seedDicteeList(t *testing.T, ts *testServer, childID string) (listID, item1ID, item2ID string) {
+	t.Helper()
+	listID = childID + "-dictee-list"
+	l := &store.WordList{ID: listID, ChildID: childID, Label: "Semaine", CreatedAt: time.Now()}
+	if err := ts.DB.CreateList(t.Context(), l); err != nil {
+		t.Fatalf("CreateList() error = %v", err)
+	}
+	item1ID, item2ID = childID+"-item1", childID+"-item2"
+	for _, id := range []string{item1ID, item2ID} {
+		item := &store.Item{ID: id, ListID: listID, Kind: engine.KindWord, Text: id, Enabled: true}
+		if err := ts.DB.SaveItem(t.Context(), item); err != nil {
+			t.Fatalf("SaveItem() error = %v", err)
+		}
+	}
+	return listID, item1ID, item2ID
 }
 
 // setDailyLimitMinutes overwrites childID's daily_limit_json directly: the

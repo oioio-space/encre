@@ -29,6 +29,8 @@ import (
 	"github.com/oioio-space/encre/internal/httpstatic"
 	"github.com/oioio-space/encre/server/api"
 	"github.com/oioio-space/encre/server/auth"
+	"github.com/oioio-space/encre/server/gen"
+	"github.com/oioio-space/encre/server/media"
 	"github.com/oioio-space/encre/server/store"
 )
 
@@ -62,7 +64,27 @@ func run(args []string) error {
 	}
 	defer db.Close() //nolint:errcheck // best-effort on shutdown, already logging the real error if any
 
+	mediaRoot, err := media.NewRoot(cfg.mediaRoot)
+	if err != nil {
+		return fmt.Errorf("preparing media root: %w", err)
+	}
+	if _, err := media.LookupFFmpeg(); err != nil {
+		// ENCRE_04 §8's own instruction: say so plainly, do not refuse to
+		// start. Every upload will answer 503 until ffmpeg is installed.
+		logger.Warn("voice upload transcoding disabled: ffmpeg not found on PATH")
+	}
+
 	apiServer := api.New(db, engine.DefaultConfig(), time.Now, pep)
+	apiServer.SetMediaRoot(mediaRoot)
+	if genClient, err := gen.NewAnthropicClient(); err != nil {
+		// ENCRE_04 §9's own fallback applies here too: no key in the
+		// environment does not stop the server from starting, it only
+		// means every parent hits [gen.ErrSentenceTooLong]'s sibling —
+		// server/api's 503 — and types sentences by hand until one is set.
+		logger.Warn("sentence generation disabled: no Anthropic API key", "env", gen.AnthropicAPIKeyEnv, "error", err)
+	} else {
+		apiServer.SetGenClient(genClient)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/", apiServer.Handler())
@@ -70,6 +92,7 @@ func run(args []string) error {
 	staticDir := cfg.webRoot + "/static"
 	mux.Handle("/static/", http.StripPrefix("/static/",
 		httpstatic.Precompressed(http.Dir(staticDir), http.FileServer(http.Dir(staticDir)))))
+	mux.Handle("/media/", http.StripPrefix("/media/", cachedFileServer(mediaRoot.Dir())))
 	mux.HandleFunc("GET /sw.js", serveNoCache(cfg.webRoot, "sw.js"))
 	mux.HandleFunc("GET /{$}", serveNoCache(cfg.webRoot, "index.html"))
 
@@ -104,9 +127,10 @@ func run(args []string) error {
 // serverConfig is every flag [run] needs, split out so [parseFlags] has
 // something to build and tests can construct one without touching os.Args.
 type serverConfig struct {
-	addr    string
-	dsn     string
-	webRoot string
+	addr      string
+	dsn       string
+	webRoot   string
+	mediaRoot string
 }
 
 func parseFlags(args []string) (serverConfig, error) {
@@ -114,7 +138,7 @@ func parseFlags(args []string) (serverConfig, error) {
 	if err := fs.fs.Parse(args); err != nil {
 		return serverConfig{}, err
 	}
-	return serverConfig{addr: *fs.addr, dsn: *fs.dsn, webRoot: *fs.webRoot}, nil
+	return serverConfig{addr: *fs.addr, dsn: *fs.dsn, webRoot: *fs.webRoot, mediaRoot: *fs.mediaRoot}, nil
 }
 
 // serveNoCache serves exactly one file from dir, with a Cache-Control that
@@ -132,4 +156,25 @@ func serveNoCache(dir, name string) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFile(w, r, dir+"/"+name)
 	}
+}
+
+// mediaCacheControl is the header [cachedFileServer] sets on every
+// recording: a voice recording never changes once transcoded — a new
+// upload gets a new path, since [media.Root.Path] is keyed by the item or
+// sentence ID, not a version — so a long, immutable cache is safe, and
+// this is one child's family's data, never meant to sit in a shared CDN
+// cache the way /static's public assets do.
+const mediaCacheControl = "private, max-age=31536000, immutable"
+
+// cachedFileServer serves dir (server/media.Root.Dir()) with
+// [mediaCacheControl] on every response. [net/http.FileServer] itself
+// already refuses ".." path segments and anything resolving outside dir,
+// the same protection [media.Root.Path] gives every path this package
+// writes in the first place.
+func cachedFileServer(dir string) http.Handler {
+	fs := http.FileServer(http.Dir(dir))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", mediaCacheControl)
+		fs.ServeHTTP(w, r)
+	})
 }

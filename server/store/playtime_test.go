@@ -53,6 +53,61 @@ func TestAddPlayTimeFailsOnClosedDB(t *testing.T) {
 	}
 }
 
+func TestAddBonusSecondsAccumulatesWithoutTouchingPlayedSeconds(t *testing.T) {
+	db := openTestStore(t)
+	ctx := t.Context()
+	childID := seedChild(t, db, "child1")
+
+	if err := db.AddPlayTime(ctx, childID, 19_000, 300); err != nil {
+		t.Fatalf("AddPlayTime() error = %v", err)
+	}
+	if err := db.AddBonusSeconds(ctx, childID, 19_000, 120); err != nil {
+		t.Fatalf("AddBonusSeconds() error = %v", err)
+	}
+	if err := db.AddBonusSeconds(ctx, childID, 19_000, 60); err != nil {
+		t.Fatalf("second AddBonusSeconds() error = %v", err)
+	}
+
+	seconds, bonus, err := db.PlayTime(ctx, childID, 19_000)
+	if err != nil {
+		t.Fatalf("PlayTime() error = %v", err)
+	}
+	if seconds != 300 {
+		t.Errorf("seconds = %d, want 300 (untouched by AddBonusSeconds)", seconds)
+	}
+	if bonus != 180 {
+		t.Errorf("bonus = %d, want 180", bonus)
+	}
+}
+
+func TestAddBonusSecondsCreatesRowWhenNoneExists(t *testing.T) {
+	db := openTestStore(t)
+	ctx := t.Context()
+	childID := seedChild(t, db, "child1")
+
+	if err := db.AddBonusSeconds(ctx, childID, 19_001, 90); err != nil {
+		t.Fatalf("AddBonusSeconds() error = %v", err)
+	}
+	seconds, bonus, err := db.PlayTime(ctx, childID, 19_001)
+	if err != nil {
+		t.Fatalf("PlayTime() error = %v", err)
+	}
+	if seconds != 0 || bonus != 90 {
+		t.Errorf("PlayTime() = (%d, %d), want (0, 90)", seconds, bonus)
+	}
+}
+
+func TestAddBonusSecondsFailsOnClosedDB(t *testing.T) {
+	db := openTestStore(t)
+	if err := db.DB().Close(); err != nil {
+		t.Fatalf("closing underlying db: %v", err)
+	}
+
+	if err := db.AddBonusSeconds(t.Context(), "child1", 1, 60); err == nil {
+		t.Error("AddBonusSeconds() on a closed database: want error, got nil")
+	}
+}
+
 func TestPlayTimeFailsOnClosedDB(t *testing.T) {
 	db := openTestStore(t)
 	if err := db.DB().Close(); err != nil {

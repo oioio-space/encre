@@ -468,6 +468,86 @@ func TestAZERTYIsNotOfferedPlainlyInPortrait(t *testing.T) {
 // newline whether or not the "s" flag is set.
 var azertyInputRE = regexp.MustCompile(`<input[^>]*value="azerty"[^>]*>`)
 
+// TestAZERTYCanBeSavedOnceReenabled is this bead's landscape-orientation
+// half: ENCRE_07 §4.2 restricts AZERTY on a narrow portrait phone, not on
+// every device, and the acceptance criterion asks for both orientations to
+// be covered. The server itself cannot observe a browser's orientation —
+// [server/parent/static/keyboard-layout.js]'s matchMedia is what does, in
+// landscape or on a tablet — so this test drives the one thing the server
+// *can* be asked to prove: once that script has re-enabled the radio (which
+// a test drives by simply submitting "keyboard=azerty", the same POST body
+// an un-disabled radio would produce), the save must actually take, not be
+// silently downgraded back to ABC. Paired with
+// [TestAZERTYIsNotOfferedPlainlyInPortrait]'s "disabled by default", this
+// is the other half: "not offered in portrait" must not have been
+// implemented as "never accepted at all".
+func TestAZERTYCanBeSavedOnceReenabled(t *testing.T) {
+	ts, db, client := newTestServer(t)
+	tp := seedParent(t, db)
+	login(t, ts, client, tp)
+
+	_, body := get(t, client, ts.URL+"/parent/children")
+	csrfToken := extractCSRF(t, body)
+	form := url.Values{"pseudo": {"Timéo"}, "pattern": {"13579"}, "csrf_token": {csrfToken}}
+	if resp, respBody := postForm(t, client, ts.URL+"/parent/children", form, true); resp.StatusCode != http.StatusOK {
+		t.Fatalf("creating child: got status %d; body: %s", resp.StatusCode, respBody)
+	}
+	children, err := db.ChildrenOfParent(t.Context(), tp.id)
+	if err != nil || len(children) != 1 {
+		t.Fatalf("ChildrenOfParent: %v, %d children", err, len(children))
+	}
+	childID := children[0].ID
+
+	_, settingsBody := get(t, client, ts.URL+"/parent/children/"+childID+"/settings")
+	saveForm := url.Values{
+		"minutes_per_day": {"30"}, "keyboard": {"azerty"},
+		"csrf_token": {extractCSRF(t, settingsBody)},
+	}
+	resp, respBody := postForm(t, client, ts.URL+"/parent/children/"+childID+"/settings", saveForm, true)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("saving azerty: got status %d; body: %s", resp.StatusCode, respBody)
+	}
+
+	updated, err := db.ChildByID(t.Context(), childID)
+	if err != nil {
+		t.Fatalf("ChildByID: %v", err)
+	}
+	var settings struct {
+		Keyboard string `json:"keyboard"`
+	}
+	if err := json.Unmarshal(updated.Settings, &settings); err != nil {
+		t.Fatalf("unmarshaling settings: %v", err)
+	}
+	if settings.Keyboard != "azerty" {
+		t.Errorf("saved Keyboard = %q, want azerty", settings.Keyboard)
+	}
+}
+
+// TestKeyboardLayoutScriptGatesOnLandscapeOrTablet pins down the media
+// query [server/parent/static/keyboard-layout.js] gates the AZERTY radio
+// on, so a future edit that quietly widens or narrows it (dropping the
+// tablet allowance, say, or the landscape one) fails a test instead of
+// only showing up on a real phone. ENCRE_07 §4.2 names 390px portrait as
+// the failing case and an iPad mini portrait (768px) as one that should
+// still work; the script's own comment cites both, this test pins the
+// media query string itself.
+func TestKeyboardLayoutScriptGatesOnLandscapeOrTablet(t *testing.T) {
+	ts, _, client := newTestServer(t)
+	resp, body := get(t, client, ts.URL+"/parent/static/keyboard-layout.js")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET keyboard-layout.js: got status %d", resp.StatusCode)
+	}
+	if !strings.Contains(body, "orientation: landscape") {
+		t.Errorf("keyboard-layout.js does not gate on landscape orientation: %s", body)
+	}
+	if !strings.Contains(body, "min-width: 768px") {
+		t.Errorf("keyboard-layout.js does not keep the tablet allowance at 768px: %s", body)
+	}
+	if !strings.Contains(body, "data-portrait-restricted") {
+		t.Errorf("keyboard-layout.js does not target [data-portrait-restricted], which settings.html marks the AZERTY radio with: %s", body)
+	}
+}
+
 func TestLoginRejectsWrongPassword(t *testing.T) {
 	ts, db, client := newTestServer(t)
 	tp := seedParent(t, db)

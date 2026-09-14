@@ -21,6 +21,26 @@ func (s *Store) AddPlayTime(ctx context.Context, childID string, day int32, seco
 	return nil
 }
 
+// AddBonusSeconds adds seconds to the child's bonus play-time budget for the
+// given day, creating the row if it does not exist yet.
+//
+// Every caller of this method must only ever pass a non-negative seconds:
+// bonus play time (ENCRE_01 §14 — the dictée's "bonus fixe... jamais de
+// perte") is additive by construction, the same way [AddPlayTime] itself
+// never subtracts. There is no Store method that lowers bonus_seconds,
+// deliberately — the day that rule needs breaking is the day a malus enters
+// the game, and it should not be one call away.
+func (s *Store) AddBonusSeconds(ctx context.Context, childID string, day int32, seconds int) error {
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO play_time (child_id, day, seconds, bonus_seconds) VALUES (?, ?, 0, ?)
+		ON CONFLICT(child_id, day) DO UPDATE SET bonus_seconds = bonus_seconds + excluded.bonus_seconds`,
+		childID, day, seconds)
+	if err != nil {
+		return fmt.Errorf("adding bonus play time: %w", err)
+	}
+	return nil
+}
+
 // PlayTime returns the seconds played and the bonus seconds granted for the
 // given child and day. Both are zero if no row exists yet.
 func (s *Store) PlayTime(ctx context.Context, childID string, day int32) (seconds, bonusSeconds int, err error) {

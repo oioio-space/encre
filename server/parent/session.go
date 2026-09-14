@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/oioio-space/encre/server/auth"
@@ -58,6 +59,40 @@ func (s *Server) requireParentSession(next http.Handler) http.Handler {
 	})
 }
 
+// maxRequestBytes bounds any mutating request's whole body, [parseAnyForm]'s
+// one enforcement point for every route in this package: generous for a
+// spoken word or short sentence's recording (the largest body this package
+// accepts, from [handleItemAudioPost]) at any reasonable bitrate, small
+// enough that one upload cannot exhaust the server's disk on its own.
+const maxRequestBytes = 8 << 20 // 8 MiB
+
+// maxMultipartMemory bounds how much of a multipart request
+// [parseAnyForm] buffers in memory before spilling the rest to a temp file;
+// it does not bound the request's total size, [maxRequestBytes] does that.
+const maxMultipartMemory = 1 << 20 // 1 MiB
+
+// parseAnyForm parses r's body whether it is
+// application/x-www-form-urlencoded ([http.Request.ParseForm]) or
+// multipart/form-data ([http.Request.ParseMultipartForm], which
+// [handleItemAudioPost]'s upload sends) — [requireCSRF] needs
+// [http.Request.PostFormValue] populated either way to find
+// [csrfFormField], and ParseForm alone never reads a multipart body. It
+// wraps r.Body in [http.MaxBytesReader] first, capping every mutating
+// route in this package at [maxRequestBytes] in one place rather than each
+// handler enforcing its own limit — or, as a plain [http.Request.ParseForm]
+// call with no limit at all would, none.
+func parseAnyForm(w http.ResponseWriter, r *http.Request) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBytes)
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		// #nosec G120 -- bounded twice over: maxMultipartMemory itself caps
+		// what ParseMultipartForm buffers in memory, and the MaxBytesReader
+		// wrap just above already caps the whole body at maxRequestBytes
+		// before a single byte of it reaches this call.
+		return r.ParseMultipartForm(maxMultipartMemory)
+	}
+	return r.ParseForm()
+}
+
 // requireCSRF wraps next so a mutating request is rejected unless
 // [requireSameOrigin] holds and its csrfFormField field matches the token
 // [requireParentSession] bound to the caller's own session. It must run
@@ -80,7 +115,7 @@ func (s *Server) requireCSRF(next http.Handler) http.Handler {
 			return
 		}
 
-		if err := r.ParseForm(); err != nil {
+		if err := parseAnyForm(w, r); err != nil {
 			s.renderError(w, r, http.StatusBadRequest, "formulaire invalide")
 			return
 		}

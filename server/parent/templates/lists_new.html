@@ -1,0 +1,37 @@
+{{define "lists_new.html"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENCRE — coller une liste pour {{.Child.Pseudo}}</title>
+  <link rel="stylesheet" href="/parent/static/style.css">
+</head>
+<body>
+  <h1>Coller une liste — {{.Child.Pseudo}}</h1>
+  <p><a href="/parent/children/{{.Child.ID}}/lists">&larr; Retour à la semaine</a></p>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+  <form method="post" action="/parent/children/{{.Child.ID}}/lists">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+
+    <label for="label">Nom de la liste (facultatif)</label>
+    <input type="text" id="label" name="label" maxlength="60" placeholder="Semaine du ...">
+
+    <label for="kind">Type</label>
+    <select id="kind" name="kind">
+      <option value="mot" selected>Mots</option>
+      <option value="phrase">Phrase avec cible (entourez le mot de *astérisques*)</option>
+      <option value="dictee">Dictée (découpée aux points)</option>
+    </select>
+
+    <label for="raw_text">Texte collé</label>
+    <textarea id="raw_text" name="raw_text" rows="8" required
+      placeholder="un mot par ligne, ou séparés par des virgules"></textarea>
+
+    <button type="submit">Analyser</button>
+  </form>
+  <script src="/parent/static/htmx.min.js"></script>
+</body>
+</html>
+{{end}}

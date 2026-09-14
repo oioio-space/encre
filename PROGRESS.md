@@ -2,39 +2,41 @@
 
 ## Current state
 
-- v0.0.0 — projet généré depuis go-starter le 2026-09-13 ; squelette + gates verts.
-- Brief de conception dans `brief/` : règles du jeu, charte graphique, contenu
-  pédagogique, spec technique, backlog, design.
-- **Prototype T00**, selon ENCRE_06 : thème clair parchemin, 7 colonnes
-  alphabétiques sur téléphone (AZERTY 10 sur ordinateur), rangée d'accents,
-  ourlet de touche, appui long. Vérifié en WASM — « cœur » écrit, le `œ` par
-  appui long sur `o`. `client/ui` et `client/game` sont testés ; le reste de T00
-  est la séance sur tablette et téléphone réels (`encre-1yv.1`).
-- **Paquet `engine`** : Config, Score, PHat/Targets, transitions du mot, rang et
-  XP, BuildDeck, Replay/Apply. Pur Go, zéro dépendance, 95,5 % couvert, score de
-  mutation **100 %**.
-  **Mais il n'est pas complet, contrairement à ce que ce fichier a affirmé.**
-  Mesuré sur le vrai moteur (`encre-00q.1`) : `WeeksAtRank` n'est jamais
-  incrémenté en production, donc **personne ne monte de rang** — 100 enfants sur
-  100 restent Blanc après 36 semaines ; La Gomme et Le Chronomètre ne s'exécutent
-  nulle part ; `Replay` code en dur `Boss: NoBoss`, donc Le Voleur d'accents est
-  sans effet ; le combo est remis à 1 à chaque manche alors qu'ENCRE_01 §6 dit
-  qu'il se conserve ; aucun effet de salle n'est implémenté. Les tests passent
-  parce qu'ils testent ce que le code fait, pas ce que le brief promet.
-- **Paquet `lexique`** : `Analyze` nomme les Couleurs et les règles fines d'un
-  mot, confirmées sur la prononciation de Lexique 3.83 (CC BY-SA 4.0) — le « on »
-  de *bonne* n'est pas la nasale de *pont*. `AnalyzeSentence` ajoute les
-  Accordées que seul le contexte révèle. Mesuré à **100 %** sur 211 mots de CE1
-  étiquetés à la main (91,0 % au premier passage) ; T10 demande 90 %.
-- **`sim`** rejoue 100 enfants sur 36 semaines à travers le vrai moteur :
-  rétention 96 %, M1 3,3 %, boss 23,5 %, en 2,8 s. **Portée réelle plus étroite
-  que ces chiffres ne le laissent croire** (`encre-00q.2`) : il ne pose jamais de
-  Talismans, jamais de Revanche, jamais le mode Rencontre, et joue toujours à
-  deux écoutes — donc l'Échoppe est hors simulation et la difficulté des hauts
-  rangs est systématiquement sous-estimée.
-- Builds natif **et** `GOOS=js GOARCH=wasm` verts, sans CGO. WASM : 18 Mo bruts,
-  **3,2 Mo brotli** — le brief budgète ~10 Mo bruts / ~3 Mo brotli, donc le
-  double sur le brut et la cible sur ce qui traverse vraiment le réseau.
+Le jeu existe de bout en bout : un parent colle une liste, l'enfant la joue, le
+serveur fait autorité, et l'écran de run se dessine. Ce qui manque est nommé plus
+bas, pas caché.
+
+- **`engine`** — Config, Score, PHat/Targets, transitions du mot, rang et XP,
+  BuildDeck, `Draw` (tirage autour de p̂), Replay/Apply. Pur Go, zéro dépendance,
+  score de mutation **100 %** (244 mutants, aucun survivant).
+- **`lexique`** — nomme les pièges d'un mot et les **confirme sur la prononciation**
+  de Lexique 3.83 : le « on » de *bonne* n'est pas la nasale de *pont*. **100 %**
+  sur 211 mots de CE1 étiquetés à la main.
+- **`content`** — les textes dits : 20 Talismans, 5 boss, 60 lignes de Phalène,
+  22 exploits. Deux contradictions du brief tranchées et figées par des tests.
+- **`sim`** — 100 enfants × 36 semaines sur le vrai moteur, avec les Talismans, la
+  Revanche, la Rencontre et les conditions de rang. Rétention 100 %, M1 2,1 %,
+  boss 24,3 %, **80 % des enfants au-dessus du rang Blanc**.
+- **`server`** — `store` (schéma ENCRE_04 §6, WAL, migrations), `auth` (argon2id
+  poivré, TOTP anti-rejeu atomique, sessions), `api` (les six endpoints de run,
+  lecture enfant, dictée, tableau de bord), `parent` (connexion, enfants, réglages,
+  la semaine, export et suppression), `gen` (phrases), `media` (ffmpeg sans shell).
+- **`client`** — scènes, seize animations avec leurs courbes, trois vraies polices
+  libres, clavier qui pardonne les frappes ratées, écran de run dessiné, hors ligne
+  et reprise.
+- **Déploiement** — Caddyfile, unités systemd, Litestream **chiffré et restauré pour
+  de vrai**, service worker, `/admin/metrics`.
+
+### Ce qui n'est pas fait, dit clairement
+
+- **Les assets d'ENCRE_06 §9 n'existent pas** : 18 créatures, 8 icônes de Talismans,
+  le shader d'encre vivante. La carte dessine un cadre nommé, pas une créature.
+- **Aucune voix** : ni Piper pré-synthétisé, ni enregistrement parent joué en run.
+- **`finish` n'enregistre pas les tentatives** (`encre-qpx.5`) — la table `attempts`
+  reste vide, donc le serveur qui fait autorité ne garde pas ses pièces.
+- **Les 85 % de Wilson ne sont pas atteints** (67 % de mots justes) et ne le seront
+  pas par un réglage : voir `brief/ENCRE_07` §4 ter, qui le démontre par un balayage.
+- Atelier, Bestiaire, fioles, musique en couches, retour haptique : non commencés.
 
 ## Roadmap
 
@@ -64,4 +66,8 @@ production et le socle du dépôt en P2. Le dépôt ne prime pas sur le jeu.
 | 2026-09-13 | Disposition balayée sur 16 formats à chaque build ; relief des touches selon ENCRE_02 §4 et ENCRE_06 §4. |
 | 2026-09-13 | README réel (ancré sur la simulation d'équilibrage), topics GitHub, licence MIT. |
 | 2026-09-13 | Le brief a désormais son registre de corrections : `brief/ENCRE_07_corrections.md`, avec la preuve de chaque écart. |
+| 2026-09-14 | **Le serveur et l'écran de run existent** : six endpoints, panneau parent complet, carte dessinée, hors ligne, déploiement. |
+| 2026-09-14 | Un audit de sécurité adverse ferme trois failles hautes, dont une escalade de privilège sur les données d'enfants. |
+| 2026-09-14 | Le moteur vit : quatre mécaniques de V1 ne s'exécutaient nulle part, 0 % → 80 % des enfants montent de rang. |
+| 2026-09-14 | `brief/ENCRE_07_corrections.md` : le brief a son registre de corrections, chaque écart avec sa preuve. |
 | 2026-09-13 | **T10 — paquet `lexique`** : détection des Couleurs confirmée sur la phonétique ; 100 % sur 211 mots CE1 ; Lexique 3.83 embarqué, attribué dans `LICENSES.md`. |

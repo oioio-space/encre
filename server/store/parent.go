@@ -125,6 +125,20 @@ func (s *Store) SetParentPassHash(ctx context.Context, parentID string, passHash
 	return requireRowAffected(result, "setting parent pass hash")
 }
 
+// DeleteParent removes the parent row for id and, through this database's
+// foreign-key cascades (see [Open]'s doc comment — foreign_keys is on for
+// every connection), every child, word list, item, run and session that
+// hangs off it. It is what account deletion (ENCRE_04 §7's "export et
+// suppression complets") calls after the caller has already exported
+// whatever the parent asked to keep; deleting is not an error when id does
+// not exist, so a retried request stays idempotent.
+func (s *Store) DeleteParent(ctx context.Context, id string) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM parents WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("deleting parent: %w", err)
+	}
+	return nil
+}
+
 const parentSelect = `SELECT id, email, pass_hash, totp_secret, family_code, created_at FROM parents `
 
 func (s *Store) scanParent(row *sql.Row) (*Parent, error) {

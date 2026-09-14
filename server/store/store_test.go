@@ -54,10 +54,9 @@ func TestOpenMemoryMigrationsAreIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("counting schema_migrations: %v", err)
 	}
-	// One row per embedded migration file (currently 0001, 0002 and 0003),
-	// not one per Migrate call: a second Migrate must not re-apply anything
-	// it already recorded.
-	const wantMigrations = 6
+	// One row per embedded migration file, not one per Migrate call: a
+	// second Migrate must not re-apply anything it already recorded.
+	const wantMigrations = 7
 	if count != wantMigrations {
 		t.Errorf("schema_migrations count = %d, want %d", count, wantMigrations)
 	}

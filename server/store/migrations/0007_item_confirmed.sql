@@ -1,0 +1,14 @@
+-- 0007_item_confirmed backs encre-018's validation gate (ENCRE_04 §7,
+-- ENCRE_05 backlog): an item whose lexique.Analysis fell below
+-- lexique.UnsureConfidence is shown to the parent as « à vérifier », and
+-- [server/store.Store.ValidateList] must refuse the whole list until every
+-- such item has been explicitly confirmed. That confirmation has to
+-- outlive the request that made it — a parent reviews a ten-item list a
+-- few items at a time, not in one sitting — so it is a column, not
+-- in-memory state.
+--
+-- It is not implied by confidence alone: re-running lexique.Analyze later
+-- (a lexicon update, say) could lower a word's confidence after a parent
+-- already reviewed and accepted it, and that reconfirmation should not be
+-- silently lost.
+ALTER TABLE items ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0;

@@ -1,0 +1,58 @@
+{{define "list.html"}}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ENCRE — {{.List.Label}}</title>
+  <link rel="stylesheet" href="/parent/static/style.css">
+</head>
+<body>
+  <h1>{{.List.Label}} — {{.Child.Pseudo}}</h1>
+  <p><a href="/parent/children/{{.Child.ID}}/lists">&larr; Retour à la semaine</a></p>
+  {{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+  <p>Voix enregistrée : {{.RecordedCount}} / {{.Total}}</p>
+
+  {{range $item := .Items}}
+    <div class="child-card">
+      <strong>{{$item.Text}}</strong>
+      {{if $item.Unsure}}<span class="error"> — à vérifier</span>{{end}}
+      {{if $item.AudioPath}}<span> — voix enregistrée</span>{{end}}
+
+      {{range $item.Colors}}
+        <form method="post"
+              action="/parent/lists/{{$.List.ID}}/items/{{$item.ID}}/colors/{{.Slug}}/remove"
+              style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <button type="submit">{{.Color}} ({{.Count}}) — corriger</button>
+        </form>
+      {{end}}
+
+      {{if $item.Unsure}}
+        <form method="post" action="/parent/lists/{{$.List.ID}}/items/{{$item.ID}}/confirm">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <button type="submit">Confirmer</button>
+        </form>
+      {{end}}
+
+      <form method="post" action="/parent/lists/{{$.List.ID}}/items/{{$item.ID}}/audio"
+            enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="file" name="audio" accept="audio/*" capture required>
+        <button type="submit">🎙️ Enregistrer la voix</button>
+      </form>
+    </div>
+  {{end}}
+
+  <form method="post" action="/parent/lists/{{.List.ID}}/validate">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <label for="due_date">Date de la dictée</label>
+    <input type="date" id="due_date" name="due_date"
+      {{if not .List.DueDate.IsZero}}value="{{.List.DueDate.Format "2006-01-02"}}"{{end}}>
+    <button type="submit">Valider la liste</button>
+  </form>
+  <script src="/parent/static/htmx.min.js"></script>
+</body>
+</html>
+{{end}}
