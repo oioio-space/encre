@@ -1,0 +1,63 @@
+# 2026/09/13 23:18:27.207434 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw action: "Record"
+# 2026/09/13 23:18:27.207439 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw correct: false
+# 2026/09/13 23:18:27.207441 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw day-delta: 0
+# 2026/09/13 23:18:27.207443 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw action: "Record"
+# 2026/09/13 23:18:27.207443 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw correct: false
+# 2026/09/13 23:18:27.207444 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw day-delta: 0
+# 2026/09/13 23:18:27.207445 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw action: "Record"
+# 2026/09/13 23:18:27.207445 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw correct: true
+# 2026/09/13 23:18:27.207445 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw day-delta: 0
+# 2026/09/13 23:18:27.207447 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw action: "Record"
+# 2026/09/13 23:18:27.207447 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw correct: false
+# 2026/09/13 23:18:27.207447 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw day-delta: 0
+# 2026/09/13 23:18:27.207448 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw action: "Record"
+# 2026/09/13 23:18:27.207449 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw correct: true
+# 2026/09/13 23:18:27.207449 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw day-delta: 1
+# 2026/09/13 23:18:27.207449 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw action: "Record"
+# 2026/09/13 23:18:27.207450 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw correct: true
+# 2026/09/13 23:18:27.207451 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] [rapid] draw day-delta: 6
+# 2026/09/13 23:18:27.207452 [TestWordStateInvariantsHoldAcrossAnyRandomHistory] the word is both Gold and Cursed at once: {Mastery:0.717376708984375 SuccessDays:[0 1 7] FirstSuccess:0 Fails:3 FailWeeks:[0 0 0] ConsecOK:2 Gold:true Tarnished:false Cursed:true Seen:true Shine:0 LastPlayedW:1}
+# 
+v0.4.8#12936305555558476352
+0x1084210842108
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x1084210842108
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x1084210842108
+0x0
+0x0
+0x1
+0x0
+0x0
+0x0
+0x1084210842108
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x1084210842108
+0x0
+0x0
+0x1
+0x0
+0x0
+0x1
+0x1084210842108
+0x0
+0x0
+0x1
+0x0
+0x6b74f03291620
+0x6

@@ -200,15 +200,6 @@ const (
 // and a sound is not enough — litre begins with lit and says its t, and teaches
 // nothing about a bed. A relative has to be an inflection of the word, or carry
 // one of these.
-// A bare -e is deliberately absent: the feminine is already caught as an
-// inflection (grande is listed under grand), while loupe is not a loup and
-// tarde is not tard.
-var derivations = []string{
-	"he", "hes", "on", "onne", "ette", "et", "eau", "erie", "age", "ure",
-	"in", "ine", "eur", "euse", "eux", "elle", "ement", "ième", "iste",
-	"ot", "aine", "ade", "ie",
-}
-
 // families finds, for each kept word, a longer word of the whole lexicon that
 // begins with it and says one more sound — the sound its last letter writes and
 // does not make. chat is silent on its t; chaton is not.
@@ -268,21 +259,20 @@ func better(c, best *form) bool {
 	return c.ortho < best.ortho
 }
 
-// related reports whether the candidate is an inflection of the word — chatte
-// is listed under the lemma chat — or a derivation with a recognised ending.
+// related reports whether the candidate is really of the same family.
+//
+// Only an inflection counts: chatte is listed in the lexicon under the lemma
+// chat, grande under grand. Sharing a prefix, a sound and a plausible ending is
+// not enough — a whitelist of derivational suffixes was tried and produced
+// « mais → maison », « dos → dosage », « pois → poison » and thirty more like
+// them, a third of everything it found. Phalène says the family out loud to
+// justify a silent letter, so a wrong one teaches a wrong thing. Saying nothing
+// is better: the generic justification of ENCRE_03 §2 still stands.
+//
+// The real fix is a curated base-to-derived list built from an open
+// derivational database (see the bead) — until then, no guessing.
 func related(f, c *form) bool {
-	for _, lemma := range strings.Split(c.lemme, ",") {
-		if lemma == f.ortho {
-			return true
-		}
-	}
-	added := c.ortho[len(f.ortho):]
-	for _, d := range derivations {
-		if added == d {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(strings.Split(c.lemme, ","), f.ortho)
 }
 
 // joined returns the sound the word's last letter makes once the candidate's

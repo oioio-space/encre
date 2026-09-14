@@ -26,9 +26,10 @@ func ExampleLexicon_Analyze() {
 }
 
 // The Accordées are the one Couleur a word cannot carry alone: only the words
-// around it say whether its s is a plural or part of the spelling. Note that
-// the s is the plural here and nothing else — out of the sentence the same
-// letter would be read as a silent one.
+// around it say whether its s is a plural or part of the spelling. Here « les »
+// governs both words at once — the s of chats and the ent of dorment — and the
+// s is the plural and nothing else: out of the sentence, that same letter would
+// be read as a silent one.
 func ExampleLexicon_AnalyzeSentence() {
 	for _, a := range lexique.Embedded().AnalyzeSentence("les chats dorment", nil) {
 		if a.Traps[engine.Accordees] > 0 {
@@ -37,4 +38,5 @@ func ExampleLexicon_AnalyzeSentence() {
 	}
 	// Output:
 	// chats [ch t_muet pluriel_s]
+	// dorment [verbe_ent]
 }

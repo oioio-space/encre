@@ -14,7 +14,8 @@ type Span struct {
 	Start, End int
 }
 
-// plurals are the words that announce a plural before the noun they introduce.
+// plurals are the words that announce a plural before the word they govern —
+// determiners and the two subject pronouns.
 var plurals = map[string]bool{
 	"les": true, "des": true, "mes": true, "tes": true, "ses": true,
 	"ces": true, "nos": true, "vos": true, "leurs": true, "aux": true,
@@ -28,10 +29,6 @@ var feminines = map[string]bool{
 	"une": true, "la": true, "ma": true, "ta": true, "sa": true,
 	"cette": true, "elle": true, "elles": true,
 }
-
-// subjectsEnt are the subjects that put a verb in the third person plural, the
-// -ent a child never hears (ENCRE_03 §2).
-var subjectsEnt = map[string]bool{"ils": true, "elles": true}
 
 // token is one word of a sentence with where it is written.
 type token struct {
@@ -118,7 +115,9 @@ func (l *Lexicon) agreement(tokens []token, i int) (Hit, bool) {
 	return Hit{}, false
 }
 
-// announced says what the words before the target call for.
+// announced says what the words before the target call for. ent is only ever
+// set together with plural: the third person plural of a verb is what a plural
+// subject asks for, and there is no other way to reach it.
 type announced struct{ plural, feminine, ent bool }
 
 // announcement scans back to the start of the sentence for the determiner or
@@ -129,11 +128,12 @@ func announcement(tokens []token, i int) announced {
 	for j := i - 1; j >= 0 && i-j <= 3; j-- {
 		w := fold(tokens[j].word)
 		switch {
-		case subjectsEnt[w]:
-			a.ent, a.plural = true, true
-			return a
 		case plurals[w]:
-			a.plural = true
+			// A plural subject licenses both the -s of the noun and the -ent of
+			// the verb; which of the two applies is settled by what the word is.
+			// ENCRE_03 §2 teaches the ending as « Ils : ent », but a dictation
+			// says « les chats dorment » far more often than « ils dorment ».
+			a.plural, a.ent = true, true
 			return a
 		case feminines[w]:
 			a.feminine = true

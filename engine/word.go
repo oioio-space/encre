@@ -65,7 +65,13 @@ func Record(st *WordState, a Attempt, learnRate float64, day, week int32, cfg Co
 			// reward for going back to the word that beat you.
 			st.Cursed, st.Gold = false, true
 			events = append(events, Tamed, GoldEarned)
-		} else if !st.Gold && remembered(st, cfg) {
+		} else if !st.Gold && !st.Cursed && remembered(st, cfg) {
+			// A cursed word has exactly one way back, and it is the hard one:
+			// ENCRE_01 §9 defines the curse as falling on a word that is *not*
+			// gold, and names taming — three successes in a row — as what turns
+			// it gold again. Without the guard here a child could carry a word
+			// that is gold and cursed at once, which no card can be drawn as and
+			// which would pay the gold bonus and the ×5 curse together.
 			st.Gold = true
 			events = append(events, GoldEarned)
 		}

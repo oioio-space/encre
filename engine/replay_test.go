@@ -112,6 +112,44 @@ func TestAMancheWithinTheWindowMayBeReplayedOnce(t *testing.T) {
 	}
 }
 
+// TestReplayCountsTheGoldWordsAlreadyPlayedForTheCollectionneur exercises the
+// one line score_test.go's Collectionneur case cannot reach: Replay's own
+// goldPlayed counter, incremented as each attempt is walked so that a manche
+// with two gold words pays the second one more than the first. Scoring the
+// Talisman's bonus in isolation, as score_test.go does with a hand-picked
+// Ctx.GoldPlayed, never runs the counter itself — only replaying a manche
+// with a gold word ahead of another one does.
+func TestReplayCountsTheGoldWordsAlreadyPlayedForTheCollectionneur(t *testing.T) {
+	cfg := engine.DefaultConfig()
+	run := engine.Run{
+		ID:        "r1",
+		Deck:      engine.Deck{Week: words("un", "deux"), Seed: 7},
+		Targets:   [3]float64{0, 0, 0},
+		Talismans: []engine.TalismanID{engine.Collectionneur},
+		Attempts: []engine.Attempt{
+			{WordID: "un", Manche: 0, Correct: true},
+			{WordID: "deux", Manche: 0, Correct: true},
+		},
+	}
+
+	withGold := map[string]*engine.WordState{"un": {Gold: true}}
+	out, err := engine.Replay(run, withGold, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+
+	withoutGold := map[string]*engine.WordState{"un": {}}
+	bare, err := engine.Replay(run, withoutGold, cfg)
+	if err != nil {
+		t.Fatalf("Replay: %v", err)
+	}
+
+	if !(out.Scores[0] > bare.Scores[0]) {
+		t.Errorf("manche score with the first word gold = %v, want more than %v without it",
+			out.Scores[0], bare.Scores[0])
+	}
+}
+
 func TestReplayScoresTrapsAtTheLevelsTheRunWasPlayedAt(t *testing.T) {
 	// Levelling up between a run and its replay must not rewrite the score the
 	// child earned, so the run carries the levels it was played at.

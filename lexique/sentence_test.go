@@ -54,6 +54,58 @@ func TestAnalyzeSentenceAccordees(t *testing.T) {
 	}
 }
 
+// TestTokenizeKeepsHyphensAndApostrophesInsideAWord checks the one thing
+// tokenize exists to get right beyond splitting on spaces: "peut-être" and
+// "aujourd'hui" are single words of CE1 vocabulary, not two words glued by
+// punctuation, and a leading apostrophe — "'chat", the shape a stray smart
+// quote or a copy-paste artefact leaves — must not crash the len(cur) > 0
+// guard that keeps an apostrophe from starting a word on its own.
+func TestTokenizeKeepsHyphensAndApostrophesInsideAWord(t *testing.T) {
+	t.Parallel()
+
+	lex := lexique.Embedded()
+
+	t.Run("hyphenated word stays one token", func(t *testing.T) {
+		t.Parallel()
+		got := lex.AnalyzeSentence("peut-être que oui", nil)
+		if i := slices.IndexFunc(got, func(a lexique.Analysis) bool { return a.Word == "peut-être" }); i < 0 {
+			t.Fatalf("AnalyzeSentence(%q) = %v, want peut-être as one token",
+				"peut-être que oui", wordsOf(got))
+		}
+	})
+
+	t.Run("apostrophe stays inside the word", func(t *testing.T) {
+		t.Parallel()
+		got := lex.AnalyzeSentence("l'arbre est grand", nil)
+		want := []string{"l'arbre", "est", "grand"}
+		if !slices.Equal(wordsOf(got), want) {
+			t.Fatalf("AnalyzeSentence(%q) tokens = %v, want %v", "l'arbre est grand", wordsOf(got), want)
+		}
+	})
+
+	t.Run("a leading apostrophe does not start a token", func(t *testing.T) {
+		t.Parallel()
+		// tokenize only folds an apostrophe into a word already under way
+		// (len(cur) > 0); one arriving first, as a stray smart quote would,
+		// must not panic and must not open a token by itself.
+		got := lex.AnalyzeSentence("'chat noir", nil)
+		want := []string{"chat", "noir"}
+		if !slices.Equal(wordsOf(got), want) {
+			t.Fatalf("AnalyzeSentence(%q) tokens = %v, want %v", "'chat noir", wordsOf(got), want)
+		}
+	})
+}
+
+// wordsOf lists the words an AnalyzeSentence call returned, in order, so a
+// test can compare the whole tokenisation at once.
+func wordsOf(as []lexique.Analysis) []string {
+	out := make([]string, len(as))
+	for i, a := range as {
+		out[i] = a.Word
+	}
+	return out
+}
+
 // TestAnalyzeSentenceTargets checks that naming the targets restricts the
 // answer to them, which is how a list of sentences with gaps is analysed.
 func TestAnalyzeSentenceTargets(t *testing.T) {
@@ -94,5 +146,42 @@ func TestPluralSupersedesTheSilentLetter(t *testing.T) {
 	if a.Traps[engine.Muettes] != alone.Traps[engine.Muettes]-1 {
 		t.Errorf("Muettes = %d, want one fewer than the %d the word carries alone",
 			a.Traps[engine.Muettes], alone.Traps[engine.Muettes])
+	}
+}
+
+// TestPluralSubjectLicensesTheVerbEnding walks the -ent of ENCRE_03 §2 past the
+// example it is taught with. The table says « Ils : ent », but a dictation says
+// « les chats dorment » far more often than it says « ils dorment », and the
+// ending is the same ending.
+func TestPluralSubjectLicensesTheVerbEnding(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		sentence string
+		target   string
+		want     bool
+	}{
+		{"sujet pronom", "ils dorment", "dorment", true},
+		{"sujet nom pluriel", "les chats dorment", "dorment", true},
+		{"sujet nom pluriel, autre verbe", "des enfants chantent", "chantent", true},
+		{"sujet singulier", "le chat dort", "dort", false},
+		{"nom, pas un verbe", "les chats noirs", "chats", false},
+	}
+
+	lex := lexique.Embedded()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := lex.AnalyzeSentence(tc.sentence, nil)
+			i := slices.IndexFunc(got, func(a lexique.Analysis) bool { return a.Word == tc.target })
+			if i < 0 {
+				t.Fatalf("AnalyzeSentence(%q) did not return %q", tc.sentence, tc.target)
+			}
+			if has := slices.Contains(got[i].Rules(), lexique.RuleVerbeEnt); has != tc.want {
+				t.Errorf("%q in %q: verbe_ent = %v, want %v (rules %v)",
+					tc.target, tc.sentence, has, tc.want, got[i].Rules())
+			}
+		})
 	}
 }
