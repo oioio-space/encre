@@ -1,0 +1,23 @@
+[
+  {"id":"perroquet","icone":"perroquet","nom":"Le Perroquet","ligne":"Réécoute gratuite. +1 Mult.","saveur":"Il répète tout ce qu'on lui dit."},
+  {"id":"chronometre","icone":"sablier","nom":"Le Chronomètre","ligne":"Dorée vite tapée : +4 Mult.","saveur":"Vite, mais juste. Sinon rien."},
+  {"id":"jumeau","icone":"deux gouttes","nom":"Le Jumeau","ligne":"+2 Mult par lettre double.","saveur":"Après ap, souvent deux p."},
+  {"id":"loupe","icone":"loupe","nom":"La Loupe","ligne":"Lettres doubles : jetons ×2.","saveur":"Regarde bien, elles sont deux."},
+  {"id":"gomme","icone":"gomme","nom":"La Gomme","ligne":"Une faute pardonnée par manche.","saveur":"Tout le monde a droit à une."},
+  {"id":"collectionneur","icone":"coffre","nom":"Le Collectionneur","ligne":"+1 Mult par dorée jouée.","saveur":"Chaque mot dompté compte."},
+  {"id":"aimant","icone":"aimant","nom":"L'Aimant","ligne":"Dorées : jetons ×1,5.","saveur":"Les vieux amis reviennent."},
+  {"id":"sourd","icone":"oreille barrée","nom":"Le Sourd","ligne":"À l'aveugle : ×4 au lieu de ×3.","saveur":"Une seule fois suffit."},
+
+  {"id":"fantome","icone":"drap","nom":"Le Fantôme","ligne":"+3 Mult par lettre muette.","saveur":"On ne l'entend pas. Il est là.","verrouille":true,"exploit":"quatre_muettes"},
+  {"id":"horloge","icone":"horloge","nom":"L'Horloge","ligne":"Le combo démarre à 3.","saveur":"Tu as déjà de l'avance.","verrouille":true,"exploit":"combo_huit"},
+  {"id":"bibliothecaire","icone":"pile de livres","nom":"La Bibliothécaire","ligne":"Dorées : jetons ×2.","saveur":"Elle connaît chaque mot rangé.","verrouille":true,"exploit":"dix_dorees"},
+  {"id":"colosse","icone":"statue","nom":"Le Colosse","ligne":"+5 Mult.","saveur":"Il ne bouge pas. Il pèse.","verrouille":true,"exploit":"cinquante_dorees"},
+  {"id":"couronne","icone":"couronne","nom":"La Couronne","ligne":"Accents : jetons ×2.","saveur":"Les petites marques valent de l'or.","verrouille":true,"exploit":"dix_dorees"},
+  {"id":"meute","icone":"loups","nom":"La Meute","ligne":"+2 Mult par accord.","saveur":"Ils vont toujours ensemble.","verrouille":true,"exploit":"vingt_cinq_dorees"},
+  {"id":"miroir","icone":"miroir","nom":"Le Miroir","ligne":"Sosies : jetons ×2.","saveur":"Deux mots, un seul son.","verrouille":true,"exploit":"trente_aveugles"},
+  {"id":"echo","icone":"onde","nom":"L'Écho","ligne":"Une seconde chance par run.","saveur":"Le mot revient une fois.","verrouille":true,"exploit":"vingt_cinq_dorees"},
+  {"id":"phare","icone":"phare","nom":"Le Phare","ligne":"Une écoute de plus par manche.","saveur":"Il éclaire même de loin.","verrouille":true,"exploit":"rang_argent"},
+  {"id":"banquier","icone":"bourse","nom":"Le Banquier","ligne":"+3 pièces par manche.","saveur":"Il compte pendant que tu écris.","verrouille":true,"exploit":"rang_argent"},
+  {"id":"alchimiste","icone":"fiole","nom":"L'Alchimiste","ligne":"Ternie restaurée : devient brillante.","saveur":"La poussière devient de l'or.","verrouille":true,"exploit":"cinq_restaurees"},
+  {"id":"tambour","icone":"tambour","nom":"Le Tambour","ligne":"Maudite : +6 Mult.","saveur":"Il bat plus fort quand ça mord.","verrouille":true,"exploit":"trois_maudites"}
+]

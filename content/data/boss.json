@@ -1,0 +1,7 @@
+[
+  {"id":"chuchoteur","nom":"Le Chuchoteur","arrivee":"Je ne le dirai qu'une fois.","defaite":"Tu as bien écouté.","victoire":"Tu n'as pas écouté."},
+  {"id":"brouillon","nom":"Le Brouillon","arrivee":"Regarde vite. Il va s'effacer.","defaite":"Tu l'as gardé dans ta tête.","victoire":"Il s'est effacé trop vite."},
+  {"id":"voleur_accents","nom":"Le Voleur d'accents","arrivee":"Les accents, c'est pour moi.","defaite":"Garde-les, alors.","victoire":"Merci pour les accents.","verrouille":true},
+  {"id":"presse","nom":"Le Pressé","arrivee":"Quinze secondes. Pas une de plus.","defaite":"Rapide.","victoire":"Trop lent.","verrouille":true},
+  {"id":"miroir","nom":"Le Miroir","arrivee":"Lequel des deux ?","defaite":"Tu m'as reconnu.","victoire":"Tu t'es trompé de moi.","verrouille":true}
+]

@@ -1,0 +1,104 @@
+{
+  "accueil": [
+    "Bonsoir. La bougie est allumée.",
+    "Tu reviens. Les mots t'attendaient.",
+    "Il fait nuit. C'est l'heure d'écrire.",
+    "Prends ton étui. On y va.",
+    "J'ai rangé le Bestiaire. Regarde après."
+  ],
+  "garde": [
+    "Choisis tes trois compagnons.",
+    "Celle-là est ternie. Emmène-la.",
+    "Une brillante ! Elle veut sortir.",
+    "Tu hésites ? Prends la plus dure."
+  ],
+  "rencontre": [
+    "Un nouveau. Regarde-le bien.",
+    "Recopie-le. Prends ton temps.",
+    "Voilà. Maintenant il te connaît."
+  ],
+  "reussite": [
+    "Juste.",
+    "Bien vu.",
+    "L'encre tient.",
+    "Encore un.",
+    "Tu chauffes."
+  ],
+  "reussite_aveugle": [
+    "Sans filet. Bravo.",
+    "Une seule écoute. Tu es fort.",
+    "Le Sourd serait fier."
+  ],
+  "combo_haut": [
+    "La flamme grandit.",
+    "Ne souffle pas.",
+    "Regarde la bougie !"
+  ],
+  "faute": [
+    "L'encre a bavé. Retape.",
+    "Presque. Regarde la lettre.",
+    "Ce n'est rien. Encore.",
+    "La bougie n'est pas finie."
+  ],
+  "combo_casse": [
+    "La flamme vacille. Elle tient.",
+    "On repart de un."
+  ],
+  "doree": [
+    "Et d'une. Je la range.",
+    "Celui-là ne bougera plus.",
+    "Une place au Bestiaire."
+  ],
+  "brillante": [
+    "Oh. Regarde-la briller.",
+    "Celle-là, c'est une rare."
+  ],
+  "restauree": [
+    "Tu l'as dépoussiérée. Merci.",
+    "Elle brille à nouveau."
+  ],
+  "maudite": [
+    "Attention. Celle-là mord.",
+    "Elle t'a déjà eu deux fois.",
+    "Domptée ! Tu l'as eue."
+  ],
+  "echoppe": [
+    "J'ai des sceaux. Regarde.",
+    "Celui-là va avec celui-là. Peut-être.",
+    "Pas de pièces ? La prochaine fois."
+  ],
+  "salle": [
+    "Repose-toi. Une carte revient.",
+    "Des pièces dans l'encrier."
+  ],
+  "annonce_boss": [
+    "Le buvard noir. Quelqu'un arrive.",
+    "Chut. C'est lui."
+  ],
+  "cible_atteinte": [
+    "La cire a craqué.",
+    "Sceau brisé. Manche gagnée."
+  ],
+  "revanche": [
+    "Il manquait si peu. Revanche ?",
+    "Reprends la plume."
+  ],
+  "enluminure": [
+    "En or. Regarde-le en cursive.",
+    "Tout le deck est venu voir."
+  ],
+  "cahier": [
+    "Écris tes dorées sur ton cahier.",
+    "Ta main doit aussi les connaître."
+  ],
+  "run_perdue": [
+    "La bougie n'est pas finie.",
+    "Demain, l'encre sera meilleure.",
+    "Tu as appris. Ça compte."
+  ],
+  "fin_de_temps": [
+    "La bougie s'éteint. À demain.",
+    "J'ai tout noté. Va dormir.",
+    "Le Bestiaire t'attend demain."
+  ]
+}

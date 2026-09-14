@@ -44,6 +44,17 @@ linters:
         - name: context-as-argument # decisions: context.Context is the first parameter
         - name: unexported-return
         - name: time-naming
+    misspell:
+      # The game's texts, and the comments quoting them, are in French. These
+      # are French words the English dictionary reads as typos; the list is
+      # deliberately narrow so real misspellings keep being caught.
+      ignore-rules:
+        - commandes
+        - compense
+        - creat
+        - poit
+        - cacher
+        - therefor
     godot:
       scope: declarations
       capital: false
