@@ -388,6 +388,31 @@ restauration ne marche pas.
 semaine et les revanches ne s'en déduisent pas** — rien ne les horodate. Documenté dans le
 code plutôt que simulé.
 
+## 4 quinquies. L'appareil appartient au parent
+
+Fait posé par Mathieu le 2026-09-14, et qui n'est écrit nulle part dans `00` à `06`
+alors qu'il conditionne plusieurs choix : **les téléphones, tablettes et ordinateurs
+sont ceux des parents, jamais ceux des enfants.**
+
+Conséquences, dans l'ordre où elles mordent :
+
+- **Pas de rappel du dimanche.** Le parent voit le panneau dès qu'il reprend son propre
+  téléphone. Un courriel ou une notification push résoudrait un problème qui n'existe
+  pas, au prix d'un serveur SMTP ou de clés VAPID, d'un secret de plus et d'une
+  dépendance de plus. Bead clos sans être fait.
+- **La connexion enfant scopée à la famille est la bonne forme**, et pas seulement pour
+  la sécurité : un appareil, une famille. Le code de famille vit naturellement sur
+  l'appareil du parent, l'enfant choisit son avatar, tape son motif. C'est exactement
+  ce que `ENCRE_07` §3 demandait pour fermer la collision entre homonymes, et le
+  contexte d'usage le rend évident au lieu de contraint.
+- **La session enfant de 24 h vit sur l'appareil d'un adulte.** Ce n'est pas un risque
+  d'exposition publique — c'est un téléphone de parent — mais ça veut dire qu'un enfant
+  reste connecté entre deux sessions sans que personne ne retape quoi que ce soit. La
+  durée est donc un choix de confort, pas de sécurité, et `Logout` doit rester
+  atteignable simplement.
+- **La limite de temps par jour est une règle de foyer, pas une barrière technique.**
+  L'enfant ne peut pas contourner le jeu en prenant un autre appareil : il n'en a pas.
+
 ## 5. Décisions techniques qui ne sont pas dans le brief
 
 - **SQL** : `ent` (entgo.io) écarté — ses clés primaires composites ne marchent que pour
